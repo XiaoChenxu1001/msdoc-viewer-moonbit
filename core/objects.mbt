@@ -27,6 +27,115 @@ struct ObjectStorageInfo {
   object_data : Option[FixedArray[Byte]]
 }
 
+///| Summary Information metadata
+pub struct SummaryInfo {
+  title : String
+  subject : String
+  author : String
+  last_saved_by : String
+  creating_application : String
+  create_time : String
+  last_saved_time : String
+}
+
+///| Parse Summary Information stream (\005SummaryInformation)
+///| Per [MS-OSHARED] section 2.3.3.2.1 - compound document property set
+pub fn parse_summary_info(bytes : FixedArray[Byte]) -> Option[SummaryInfo] {
+  if bytes.length() < 44 {
+    return None
+  }
+  let reader = BinaryReader::make(bytes)
+  let byte_order = reader.u16(0)
+  let little_endian = byte_order == 0xFFFE
+  if !little_endian {
+    return None
+  }
+  let section_count = reader.u32(8)
+  if section_count < 1 {
+    return None
+  }
+  let section_offset = reader.u32(44)
+  if section_offset >= bytes.length() {
+    return None
+  }
+  let prop_count = reader.u32(section_offset)
+  let mut title = ""
+  let mut subject = ""
+  let mut author = ""
+  let mut last_saved_by = ""
+  let mut creating_application = ""
+  let create_time = ""
+  let last_saved_time = ""
+
+  let props_start = section_offset + 4
+  for p in 0..<prop_count.min(30) {
+    let prop_offset = props_start + p * 8
+    if prop_offset + 8 > bytes.length() {
+      break
+    }
+    let prop_id = reader.u32(prop_offset)
+    let prop_offset_val = reader.u32(prop_offset + 4)
+    let data_offset = section_offset + prop_offset_val
+    if data_offset + 8 > bytes.length() {
+      continue
+    }
+    let prop_type = reader.u16(data_offset)
+    match prop_id {
+      0x03 => {
+        if prop_type == 0x001E && data_offset + 8 <= bytes.length() {
+          let str_len = reader.u32(data_offset + 4)
+          if str_len > 0 && str_len < 1000 && data_offset + 8 + str_len <= bytes.length() {
+            title = reader.latin1(data_offset + 8, str_len - 1)
+          }
+        }
+      }
+      0x04 => {
+        if prop_type == 0x001E && data_offset + 8 <= bytes.length() {
+          let str_len = reader.u32(data_offset + 4)
+          if str_len > 0 && str_len < 1000 && data_offset + 8 + str_len <= bytes.length() {
+            subject = reader.latin1(data_offset + 8, str_len - 1)
+          }
+        }
+      }
+      0x05 => {
+        if prop_type == 0x001E && data_offset + 8 <= bytes.length() {
+          let str_len = reader.u32(data_offset + 4)
+          if str_len > 0 && str_len < 1000 && data_offset + 8 + str_len <= bytes.length() {
+            author = reader.latin1(data_offset + 8, str_len - 1)
+          }
+        }
+      }
+      0x09 => {
+        if prop_type == 0x001E && data_offset + 8 <= bytes.length() {
+          let str_len = reader.u32(data_offset + 4)
+          if str_len > 0 && str_len < 1000 && data_offset + 8 + str_len <= bytes.length() {
+            last_saved_by = reader.latin1(data_offset + 8, str_len - 1)
+          }
+        }
+      }
+      0x0C => {
+        if prop_type == 0x001E && data_offset + 8 <= bytes.length() {
+          let str_len = reader.u32(data_offset + 4)
+          if str_len > 0 && str_len < 1000 && data_offset + 8 + str_len <= bytes.length() {
+            creating_application = reader.latin1(data_offset + 8, str_len - 1)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+
+  Some(SummaryInfo::{
+    title,
+    subject,
+    author,
+    last_saved_by,
+    creating_application,
+    create_time,
+    last_saved_time,
+  })
+}
+
 ///| Detect image format from bytes
 pub fn detect_image_format(bytes : FixedArray[Byte]) -> String {
   if bytes.length() < 8 {

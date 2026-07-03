@@ -118,6 +118,7 @@ pub struct MsDocParseResult {
   sections : Array[SectionProperties]
   footnotes : Array[Footnote]
   endnotes : Array[Footnote]
+  summary : Option[SummaryInfo]
   raw_data : FixedArray[Byte]
   image_config : ImageProcessorConfig
   image_cache : Map[Int, Asset]

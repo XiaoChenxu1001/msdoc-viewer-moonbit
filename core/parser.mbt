@@ -12,7 +12,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "WordDocument stream not found"))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -25,7 +25,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   // Check for encryption (bit 8 of flags at offset 10)
   if (flags & 0x0100) != 0 {
     ignore(push_warning(warnings, "Encrypted .doc file detected, not supported"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let f_which_tbl_stm = if (flags & 0x0200) != 0 { 1 } else { 0 }
@@ -37,7 +37,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "Table stream not found: " + table_name))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -60,7 +60,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if lcb_clx <= 0 {
     ignore(push_warning(warnings, "No CLX data"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CLX bytes from table stream (zero-copy view)
@@ -76,7 +76,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if clx_offset >= clx_view.length() || clx_reader.u8(clx_offset) != 0x02 {
     ignore(push_warning(warnings, "CLX does not contain Pcdt marker"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let lcb = clx_reader.u32(clx_offset + 1)
@@ -88,7 +88,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if pcd_count <= 0 {
     ignore(push_warning(warnings, "No pieces found"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CP array
@@ -264,6 +264,16 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     }
   }
 
+  // Parse DopBase.fFacingPages for even/odd header/footer control
+  let fc_dop = fib_reader.u32(fib_rgfc_lcb_start + 31 * 8)
+  let lcb_dop = fib_reader.u32(fib_rgfc_lcb_start + 31 * 8 + 4)
+  let mut has_facing_pages = false
+  if lcb_dop > 0 && fc_dop > 0 && fc_dop + 1 <= table_bytes.length() {
+    let dop_reader = BinaryReader::make(table_bytes)
+    // DopBase first byte: bit 0 = fFacingPages
+    has_facing_pages = (dop_reader.u8(fc_dop).land(0x01)) != 0
+  }
+
   // Extract header/footer subdocument text
   let headers = Array::new()
   let footers = Array::new()
@@ -335,16 +345,20 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
             let section_idx = relative_idx / 6
             let story_slot = relative_idx % 6
             // story_slot: 0=even header, 1=odd header, 2=even footer, 3=odd footer, 4=first header, 5=first footer
-            let is_footer = story_slot == 2 || story_slot == 3 || story_slot == 5
-            let hf = HeaderFooter::{
-              text: story_text,
-              story_type: story_slot,
-              section_index: section_idx,
-            }
-            if is_footer {
-              footers.push(hf)
-            } else {
-              headers.push(hf)
+            // Skip even-page stories if fFacingPages is not set
+            let skip_even = !has_facing_pages && (story_slot == 0 || story_slot == 2)
+            if !skip_even {
+              let is_footer = story_slot == 2 || story_slot == 3 || story_slot == 5
+              let hf = HeaderFooter::{
+                text: story_text,
+                story_type: story_slot,
+                section_index: section_idx,
+              }
+              if is_footer {
+                footers.push(hf)
+              } else {
+                headers.push(hf)
+              }
             }
           }
         }
@@ -1018,6 +1032,13 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     count_fonts: fonts.fonts.length(),
   }
 
+  // Parse Summary Information stream for document metadata
+  // Stream name is \005SummaryInformation (0x0005 prefix + "SummaryInformation")
+  let summary = match cfb_get_stream(container, "SummaryInformation") {
+    Some(bytes) => parse_summary_info(bytes)
+    None => None
+  }
+
   MsDocParseResult::{
     text: clean_full_text,
     paragraphs,
@@ -1033,6 +1054,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     sections,
     footnotes,
     endnotes,
+    summary,
     raw_data: input,
     image_config: default_image_config(),
     image_cache: Map([], capacity=16),
