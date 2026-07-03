@@ -339,7 +339,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
         let cp_e = hdd_cps[i + 1]
         if cp_e > cp_s && cp_s < header_full.length() {
           let actual_end = if cp_e > header_full.length() { header_full.length() } else { cp_e }
-          let story_text = header_full[cp_s:actual_end].replace(old = "\r", new = "\n").trim().to_owned()
+          let story_text = strip_field_markers(header_full[cp_s:actual_end].replace(old = "\r", new = "\n").trim().to_owned())
           if story_text.length() > 0 && i >= 6 {
             let relative_idx = i - 6
             let section_idx = relative_idx / 6
