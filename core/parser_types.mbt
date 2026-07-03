@@ -115,6 +115,7 @@ pub struct MsDocParseResult {
   textboxes : Array[TextBox]
   headers : Array[HeaderFooter]
   footers : Array[HeaderFooter]
+  sections : Array[SectionProperties]
   footnotes : Array[Footnote]
   endnotes : Array[Footnote]
   raw_data : FixedArray[Byte]
@@ -173,8 +174,17 @@ pub struct TextBox {
 ///| Header/Footer content
 pub struct HeaderFooter {
   text : String
-  story_type : Int  // 0=first, 1=even, 2=odd, 3=all
+  story_type : Int  // 0=even header, 1=odd header, 2=even footer, 3=odd footer, 4=first header, 5=first footer
   section_index : Int
+}
+
+///| Section properties for header/footer control
+pub struct SectionProperties {
+  index : Int
+  has_title_page : Bool      // sprmSFTitlePage: first page gets its own header/footer
+  header_distance : Int       // sprmSDyaHdrTop: distance from page top to header (twips)
+  footer_distance : Int       // sprmSDyaHdrBottom: distance from page bottom to footer (twips)
+  break_type : Int            // sprmSBkc: section break type (0=continuous, 2=new page, etc.)
 }
 
 ///| Footnote/Endnote content

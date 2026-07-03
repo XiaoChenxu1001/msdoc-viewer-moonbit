@@ -12,7 +12,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "WordDocument stream not found"))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -25,7 +25,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   // Check for encryption (bit 8 of flags at offset 10)
   if (flags & 0x0100) != 0 {
     ignore(push_warning(warnings, "Encrypted .doc file detected, not supported"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let f_which_tbl_stm = if (flags & 0x0200) != 0 { 1 } else { 0 }
@@ -37,7 +37,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "Table stream not found: " + table_name))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -60,7 +60,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if lcb_clx <= 0 {
     ignore(push_warning(warnings, "No CLX data"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CLX bytes from table stream (zero-copy view)
@@ -76,7 +76,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if clx_offset >= clx_view.length() || clx_reader.u8(clx_offset) != 0x02 {
     ignore(push_warning(warnings, "CLX does not contain Pcdt marker"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let lcb = clx_reader.u32(clx_offset + 1)
@@ -88,7 +88,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if pcd_count <= 0 {
     ignore(push_warning(warnings, "No pieces found"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CP array
@@ -312,43 +312,161 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     if lcb_plcf_hdd > 0 && fc_plcf_hdd + lcb_plcf_hdd <= table_bytes.length() {
       let hdd_view = table_bytes.view(start=fc_plcf_hdd, end=fc_plcf_hdd + lcb_plcf_hdd)
       let hdd_reader = BinaryReader::from_view(hdd_view)
-      // PlcfHdd contains (N+1) CPs and N empty 0-byte entries
-      let story_count = (lcb_plcf_hdd - 4) / 4  // Each story has 1 CP entry (4 bytes)
+      // PlcfHdd contains (N+1) CPs and N 0-byte entries, total size = (N+1)*4
+      let story_count = (lcb_plcf_hdd / 4) - 1
       let hdd_cps = Array::new()
       for i in 0..<(story_count + 1) {
         hdd_cps.push(hdd_reader.u32(i * 4))
       }
 
       // Stories 0-5 are separator stories (footnote/endnote separators)
-      // Stories 6+ are actual headers/footers (one per section)
-      // Each section has up to 3 stories: first page, even page, odd page
-      // But PlcfHdd structure is: first 6 are separators, then groups of 3 per section
-      // Actually, the structure is simpler: each pair of CPs defines one story
-      // Stories 0-5: separators, 6+: headers/footers
-
-      // For now, extract all non-empty stories as headers
+      // Stories 6+ are grouped in sets of 6 per section:
+      //   [0] even-page header, [1] odd-page header
+      //   [2] even-page footer, [3] odd-page footer
+      //   [4] first-page header, [5] first-page footer
       for i in 0..<story_count {
         let cp_s = hdd_cps[i]
         let cp_e = hdd_cps[i + 1]
         if cp_e > cp_s && cp_s < header_full.length() {
           let actual_end = if cp_e > header_full.length() { header_full.length() } else { cp_e }
           let story_text = header_full[cp_s:actual_end].replace(old = "\r", new = "\n").trim().to_owned()
-          if story_text.length() > 0 {
-            // Stories 0-5 are separators, skip them for now
-            if i >= 6 {
-              let section_idx = (i - 6) / 3
-              let story_type = (i - 6) % 3  // 0=first, 1=even, 2=odd
-              // Simple heuristic: if story_type is 0 or 2, it's header; if 1, it's footer
-              // Actually, we need section properties to determine this
-              // For now, put all in headers
-              headers.push(HeaderFooter::{
-                text: story_text,
-                story_type,
-                section_index: section_idx,
-              })
+          if story_text.length() > 0 && i >= 6 {
+            let relative_idx = i - 6
+            let section_idx = relative_idx / 6
+            let story_slot = relative_idx % 6
+            // story_slot: 0=even header, 1=odd header, 2=even footer, 3=odd footer, 4=first header, 5=first footer
+            let is_footer = story_slot == 2 || story_slot == 3 || story_slot == 5
+            let hf = HeaderFooter::{
+              text: story_text,
+              story_type: story_slot,
+              section_index: section_idx,
+            }
+            if is_footer {
+              footers.push(hf)
+            } else {
+              headers.push(hf)
             }
           }
         }
+      }
+    }
+  }
+
+  // Parse PlcfSed to get section boundaries and properties
+  let sections = Array::new()
+  let fc_plcf_sed = fib_reader.u32(fib_rgfc_lcb_start + 6 * 8)
+  let lcb_plcf_sed = fib_reader.u32(fib_rgfc_lcb_start + 6 * 8 + 4)
+
+  if lcb_plcf_sed > 0 && fc_plcf_sed + lcb_plcf_sed <= table_bytes.length() {
+    let sed_view = table_bytes.view(start=fc_plcf_sed, end=fc_plcf_sed + lcb_plcf_sed)
+    let sed_reader = BinaryReader::from_view(sed_view)
+    // PlcfSed: (N+1) CPs + N Sed structures (12 bytes each)
+    // Sed structure: fcSepx (4 bytes) + fnMpr (1 byte) + fcMpr (4 bytes) + fn (1 byte) + reserved (1 byte)
+    let section_count_bytes = lcb_plcf_sed
+    // Calculate N from: (N+1)*4 + N*12 = total_size => 16N + 4 = total_size => N = (total_size - 4) / 16
+    let section_count = (section_count_bytes - 4) / 16
+
+    if section_count > 0 {
+      // Read section boundary CPs
+      let sed_cps = Array::new()
+      for i in 0..<(section_count + 1) {
+        sed_cps.push(sed_reader.u32(i * 4))
+      }
+
+      // Parse each section's SEPX for header/footer properties
+      for s in 0..<section_count {
+        let sed_offset = (section_count + 1) * 4 + s * 12
+        let fc_sepx = sed_reader.u32(sed_offset)
+        // fcSepx is an offset into the WordDocument stream
+        // SEPX starts with 2-byte cb (size of grpprl) followed by Prl array
+
+        let mut has_title_page = false
+        let mut header_distance = 720  // default: 0.5 inch = 720 twips
+        let mut footer_distance = 720
+        let mut break_type = 2  // default: new page
+
+        if fc_sepx > 0 && fc_sepx + 2 <= word_bytes.length() {
+          let sepx_reader = BinaryReader::make(word_bytes)
+          let cb = sepx_reader.u16(fc_sepx)
+          // Parse Prl array (each Prl: 2-byte sprm + variable operand)
+          let grpprl_start = fc_sepx + 2
+          let grpprl_end = grpprl_start + cb
+          let mut prl_offset = grpprl_start
+
+          while prl_offset + 2 <= grpprl_end && prl_offset + 2 <= word_bytes.length() {
+            let sprm = sepx_reader.u16(prl_offset)
+            let sprm_group = (sprm.lsr(13)).land(0x7)
+            let sprm_opcode = sprm.lsr(4).land(0x1FF)
+            let sprm_size = sprm.land(0xF)
+
+            // Section property SPRMs (group 3 = section)
+            if sprm_group == 3 {
+              match sprm_opcode {
+                0x0A => {
+                  // sprmSFTitlePage (0x300A): 1-byte Bool8
+                  if prl_offset + 3 <= grpprl_end {
+                    has_title_page = sepx_reader.u8(prl_offset + 2) != 0
+                  }
+                }
+                0x09 => {
+                  // sprmSBkc (0x3009): 1-byte break type
+                  if prl_offset + 3 <= grpprl_end {
+                    break_type = sepx_reader.u8(prl_offset + 2)
+                  }
+                }
+                _ => ()
+              }
+            }
+            // YAS-size SPRMs for header/footer distances
+            // sprmSDyaHdrTop (0xB017): 2-byte, group=5
+            // sprmSDyaHdrBottom (0xB018): 2-byte, group=5
+            if sprm_group == 5 {
+              match sprm_opcode {
+                0x17 => {
+                  // sprmSDyaHdrTop: 2-byte YAS
+                  if prl_offset + 4 <= grpprl_end {
+                    header_distance = sepx_reader.u16(prl_offset + 2)
+                  }
+                }
+                0x18 => {
+                  // sprmSDyaHdrBottom: 2-byte YAS
+                  if prl_offset + 4 <= grpprl_end {
+                    footer_distance = sepx_reader.u16(prl_offset + 2)
+                  }
+                }
+                _ => ()
+              }
+            }
+
+            // Advance to next Prl
+            let operand_size = if sprm_size == 0xF {  // variable size
+              if prl_offset + 3 < word_bytes.length() {
+                word_bytes[prl_offset + 2].to_int() + 3
+              } else {
+                3
+              }
+            } else if sprm_size == 0xE {  // 2-byte size
+              4
+            } else if sprm_size == 0xD {  // 4-byte size
+              6
+            } else if sprm_size == 0xC {  // 3-byte size
+              5
+            } else if sprm_size >= 1 && sprm_size <= 3 {  // 0, 1, 2, 3 bytes
+              2 + sprm_size
+            } else {
+              2  // fallback
+            }
+            prl_offset += operand_size
+          }
+        }
+
+        sections.push(SectionProperties::{
+          index: s,
+          has_title_page,
+          header_distance,
+          footer_distance,
+          break_type,
+        })
       }
     }
   }
@@ -891,6 +1009,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     textboxes,
     headers,
     footers,
+    sections,
     footnotes,
     endnotes,
     raw_data: input,
