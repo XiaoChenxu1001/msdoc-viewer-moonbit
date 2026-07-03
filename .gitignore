@@ -1,30 +1,27 @@
-﻿_build/
+# 排除的目录
+_build/
 build/
 target/
-node_modules/
-*.lock
-_build/.moon-lock
-package-lock.json
-
-# 排除的目录
-docs/
-reference/
 server/
-scripts/
 .mimocode/
+reference/
+node_modules/
 
 # 排除的文件
 AGENTS.md
-extract_spec.py
-build_errors.txt
-build_errors2.txt
-test-emf-*.svg
-test-output.svg
-test-emf-converter.js
-test/out_*.html
+*.lock
+package-lock.json
 
-# 测试临时文件
-test/test6.docx/
-test/test6_analysis/
-test/test6_extracted/
-server/test-temp/
+# 敏感目录
+**/confidential/
+**/_confidential/
+**/restricted/
+**/classified/
+**/vault/
+**/internal/
+**/privileged/
+**/secret/
+**/_secret/
+**/sensitive/
+**/private/
+**/_private/
