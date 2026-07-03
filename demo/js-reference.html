@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MS-DOC Viewer - JS Reference</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 20px; }
+    .badge { display: inline-block; background: #FF5722; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+    .back { display: inline-block; margin-bottom: 16px; color: #FF5722; text-decoration: none; font-size: 14px; }
+    .back:hover { text-decoration: underline; }
+    .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 50px 30px; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
+    .upload-area:hover, .upload-area.dragover { border-color: #FF5722; background: #FBE9E7; }
+    .upload-area p { font-size: 15px; color: #666; }
+    .viewer { border: 1px solid #ddd; border-radius: 10px; padding: 24px; margin-top: 16px; min-height: 180px; background: white; }
+    .error { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; }
+    .info { color: #BF360C; background: #FBE9E7; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; font-size: 13px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All Demos</a>
+  <h1>MS-DOC Viewer <span class="badge">JS Reference</span></h1>
+  <p class="subtitle">Original JavaScript implementation — for comparison with MoonBit targets</p>
+
+  <div class="upload-area" id="dropZone">
+    <p>Drag & drop a .doc file here, or click to select</p>
+    <input type="file" id="fileInput" accept=".doc" style="display:none">
+  </div>
+
+  <div class="info" id="info"></div>
+  <div class="error" id="error"></div>
+  <div class="viewer" id="viewer"></div>
+
+  <script type="module">
+    import { parseMsDoc, renderMsDoc, defaultMsDocCss } from '../reference/js-src/index.js';
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const viewer = document.getElementById('viewer');
+    const info = document.getElementById('info');
+    const error = document.getElementById('error');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    async function loadFile(file) {
+      try {
+        error.style.display = 'none';
+        info.style.display = 'none';
+        viewer.innerHTML = '';
+
+        const buffer = await file.arrayBuffer();
+        const data = new Uint8Array(buffer);
+
+        // JS reference: parseMsDoc + renderMsDoc (two-step)
+        const t0 = performance.now();
+        const parsed = parseMsDoc(data);
+        const result = renderMsDoc(parsed);
+        const elapsed = performance.now() - t0;
+
+        info.style.display = 'block';
+        info.innerHTML =
+          '<strong>JS Reference Result</strong><br>' +
+          'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
+          'HTML: ' + result.html.length + ' chars<br>' +
+          'Time: ' + elapsed.toFixed(1) + ' ms';
+
+        viewer.innerHTML = '<style>' + result.css + '</style>' + result.html;
+      } catch (err) {
+        error.style.display = 'block';
+        error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = '';
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>

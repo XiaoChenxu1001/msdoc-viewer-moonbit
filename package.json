@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "emftosvg": "https://github.com/jzolme/emfToSvg/releases/latest/download/emftosvg.tgz"
+  }
+}

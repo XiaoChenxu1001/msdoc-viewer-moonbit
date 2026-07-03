@@ -1,0 +1,21 @@
+import {
+  "msdoc-viewer/core" @core,
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+  link: {
+    "js": {
+      "format": "esm",
+      "exports": [
+        "worker_parse",
+        "worker_render",
+        "worker_parse_to_html",
+        "worker_extract_image",
+        "worker_extract_all_images",
+      ],
+    },
+  },
+)

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MS-DOC Viewer - WASM</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 20px; }
+    .badge { display: inline-block; background: #2196F3; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+    .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 50px 30px; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
+    .upload-area:hover, .upload-area.dragover { border-color: #2196F3; background: #E3F2FD; }
+    .upload-area p { font-size: 16px; color: #666; }
+    .viewer { border: 1px solid #ddd; border-radius: 10px; padding: 24px; margin-top: 16px; min-height: 180px; background: white; }
+    .error { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; }
+    .info { color: #1565C0; background: #E3F2FD; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; font-size: 13px; line-height: 1.6; }
+    .back { display: inline-block; margin-bottom: 16px; color: #2196F3; text-decoration: none; font-size: 14px; }
+    .back:hover { text-decoration: underline; }
+    .status { text-align: center; color: #999; font-size: 13px; margin: 8px 0; }
+    .image-status { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
+    .image-status.done { background: #4CAF50; }
+    .image-status.loading { background: #FF9800; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All Demos</a>
+  <h1>MS-DOC Viewer <span class="badge">WASM</span></h1>
+  <p class="subtitle">MoonBit WASM linear memory &mdash; near-native parse speed in browser</p>
+
+  <div class="upload-area" id="dropZone">
+    <p>Drag & drop a .doc file here, or click to select</p>
+    <input type="file" id="fileInput" accept=".doc" style="display:none">
+  </div>
+
+  <div class="status" id="status">Loading WASM module...</div>
+  <div class="info" id="info"></div>
+  <div class="error" id="error"></div>
+  <div class="viewer" id="viewer"></div>
+
+  <script type="module">
+    const WASM_URL = new URL('../_build/wasm/release/build/core/core.wasm', import.meta.url);
+
+    let instance = null;
+    let memory = null;
+
+    async function initWasm() {
+      const resp = await fetch(WASM_URL);
+      const bytes = await resp.arrayBuffer();
+      const result = await WebAssembly.instantiate(bytes);
+      instance = result.instance.exports;
+      memory = instance.memory;
+      document.getElementById('status').textContent = 'WASM loaded — ready to parse';
+    }
+
+    // MoonBit WASM linear memory ABI:
+    // Object header at negative offsets from data pointer:
+    //   [-8: refcount:i32] [-4: header:i32] [0: data...]
+    // For FixedArray[Byte]: header & 0x0FFFFFFF = byte count
+    // Return convention: (tag:i32, ptr:i32) — tag=1 success, tag=0 error
+
+    // Allocate bytes in fresh memory pages (avoids collision with MoonBit heap)
+    function allocBytes(data) {
+      const pageSize = 65536;
+      const headerSize = 8; // refcount(4) + length(4)
+      const totalNeeded = headerSize + data.length;
+      const pagesNeeded = Math.ceil(totalNeeded / pageSize);
+
+      // Grow memory by the needed pages
+      const prevPages = memory.grow(pagesNeeded);
+      const baseOffset = prevPages * pageSize;
+
+      // Write MoonBit object header + data
+      const dv = new DataView(memory.buffer);
+      const u8 = new Uint8Array(memory.buffer);
+      const ptr = baseOffset + headerSize;
+      dv.setInt32(ptr - 8, 1, true);              // refcount = 1
+      dv.setInt32(ptr - 4, data.length, true);     // length
+      u8.set(data, ptr);                           // raw bytes
+      return ptr;
+    }
+
+    // Read a MoonBit string from linear memory (UTF-16 encoded)
+    function readString(ptr) {
+      if (ptr <= 0) return '';
+      const dv = new DataView(memory.buffer);
+      const header = dv.getInt32(ptr - 4, true);
+      const len = header & 0x0FFFFFFF;
+      if (len <= 0 || len > 10000000) return '';
+      let str = '';
+      for (let i = 0; i < len; i++) {
+        str += String.fromCharCode(dv.getUint16(ptr + i * 2, true));
+      }
+      return str;
+    }
+
+    // Read RenderResult struct { html: String, css: String } from WASM memory
+    function readRenderResult(structPtr) {
+      const dv = new DataView(memory.buffer);
+      const htmlPtr = dv.getInt32(structPtr, true);
+      const cssPtr = dv.getInt32(structPtr + 4, true);
+      return { html: readString(htmlPtr), css: readString(cssPtr) };
+    }
+
+    // UI wiring
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const viewer = document.getElementById('viewer');
+    const info = document.getElementById('info');
+    const error = document.getElementById('error');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    async function loadFile(file) {
+      try {
+        error.style.display = 'none';
+        info.style.display = 'none';
+        viewer.innerHTML = '';
+
+        if (!instance) {
+          document.getElementById('status').textContent = 'Loading WASM...';
+          await initWasm();
+        }
+
+        const buffer = await file.arrayBuffer();
+        const data = new Uint8Array(buffer);
+
+        const t0 = performance.now();
+        const inputPtr = allocBytes(data);
+        const [tag, resultPtr] = instance.render_ms_doc(inputPtr);
+        const elapsed = performance.now() - t0;
+
+        if (tag === 1) {
+          const result = readRenderResult(resultPtr);
+          info.style.display = 'block';
+          info.innerHTML =
+            '<strong>WASM Result</strong><br>' +
+            'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
+            'HTML: ' + result.html.length + ' chars<br>' +
+            'Time: ' + elapsed.toFixed(1) + ' ms<br>' +
+            '<span class="image-status loading" id="imageStatus">Extracting images...</span>';
+          viewer.innerHTML = '<style>' + result.css + '</style>' + result.html;
+
+          // Extract real images and update DOM
+          const [tag2, jsonPtr] = instance.extract_all_images_sync(inputPtr);
+          const statusEl = document.getElementById('imageStatus');
+          if (tag2 === 1) {
+            const imagesJson = readString(jsonPtr);
+            const images = JSON.parse(imagesJson);
+            const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
+            for (const img of images) {
+              if (img.index < placeholderEls.length) {
+                placeholderEls[img.index].src = img.data_url;
+                placeholderEls[img.index].removeAttribute('data-placeholder');
+              }
+            }
+            if (statusEl) {
+              statusEl.textContent = images.length + ' images loaded';
+              statusEl.className = 'image-status done';
+            }
+          } else {
+            if (statusEl) {
+              statusEl.textContent = 'No images to extract';
+              statusEl.className = 'image-status done';
+            }
+          }
+        } else {
+          const errStr = readString(resultPtr);
+          throw new Error(errStr || 'WASM parse returned error tag');
+        }
+      } catch (err) {
+        error.style.display = 'block';
+        error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = '';
+        console.error(err);
+      }
+    }
+
+    await initWasm();
+  </script>
+</body>
+</html>

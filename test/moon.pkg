@@ -1,0 +1,7 @@
+import {
+  "msdoc-viewer/core" @core,
+}
+
+options(
+  "is-main": true,
+)

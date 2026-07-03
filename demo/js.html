@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MS-DOC Viewer - JS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 20px; }
+    .badge { display: inline-block; background: #4CAF50; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+    .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 50px 30px; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
+    .upload-area:hover, .upload-area.dragover { border-color: #4CAF50; background: #E8F5E9; }
+    .upload-area p { font-size: 16px; color: #666; }
+    .viewer { border: 1px solid #ddd; border-radius: 10px; padding: 24px; margin-top: 16px; min-height: 180px; background: white; }
+    .error { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; }
+    .info { color: #2E7D32; background: #E8F5E9; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; font-size: 13px; line-height: 1.6; }
+    .back { display: inline-block; margin-bottom: 16px; color: #4CAF50; text-decoration: none; font-size: 14px; }
+    .back:hover { text-decoration: underline; }
+    .image-status { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
+    .image-status.done { background: #4CAF50; }
+    .image-status.loading { background: #FF9800; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All Demos</a>
+  <h1>MS-DOC Viewer <span class="badge">JS</span></h1>
+  <p class="subtitle">MoonBit compiled to JavaScript with deferred image processing</p>
+
+  <div class="upload-area" id="dropZone">
+    <p>Drag & drop a .doc file here, or click to select</p>
+    <input type="file" id="fileInput" accept=".doc" style="display:none">
+  </div>
+
+  <div class="info" id="info"></div>
+  <div class="error" id="error"></div>
+  <div class="viewer" id="viewer"></div>
+
+  <script type="module">
+    import { parse_ms_doc, render_parsed, count_placeholder_assets, extract_image_with_fallback, preload_all_images, is_placeholder_asset } from '../_build/js/release/build/core/core.js';
+    import { EmfConverter } from '../core/emf_converter_wrapper.js';
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const viewer = document.getElementById('viewer');
+    const info = document.getElementById('info');
+    const error = document.getElementById('error');
+
+    // Initialize EMF converter
+    const emfConverter = new EmfConverter({ enableCache: true });
+    window.__emfConverter = emfConverter;  // For debugging
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    function unwrap(val) {
+      return val && val._0 !== undefined ? val._0 : val;
+    }
+
+    async function loadFile(file) {
+      try {
+        error.style.display = 'none';
+        info.style.display = 'none';
+        viewer.innerHTML = '';
+
+        const buffer = await file.arrayBuffer();
+        const data = new Uint8Array(buffer);
+
+        // Phase 1: Fast parse with placeholder images
+        const t0 = performance.now();
+        const parsed = unwrap(parse_ms_doc(data));
+        const parseTime = performance.now() - t0;
+
+        // Phase 2: Render HTML with placeholders
+        const t1 = performance.now();
+        const result = unwrap(render_parsed(parsed));
+        const renderTime = performance.now() - t1;
+
+        const placeholderCount = count_placeholder_assets(parsed.assets);
+
+        info.style.display = 'block';
+        info.innerHTML =
+          '<strong>JS Result (Deferred Images)</strong><br>' +
+          'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
+          'HTML: ' + result.html.length + ' chars<br>' +
+          'Parse: ' + parseTime.toFixed(1) + ' ms<br>' +
+          'Render: ' + renderTime.toFixed(1) + ' ms<br>' +
+          'Images: ' + parsed.assets.length + ' total, ' + placeholderCount + ' placeholders<br>' +
+          '<span class="image-status loading" id="imageStatus">Loading images...</span>';
+
+        viewer.innerHTML = '<style>' + result.css + '</style>' + result.html;
+
+        // Phase 3: Load images asynchronously in background
+        if (placeholderCount > 0) {
+          loadImagesAsync(parsed, data);
+        } else {
+          const statusEl = document.getElementById('imageStatus');
+          if (statusEl) {
+            statusEl.textContent = 'No images to load';
+            statusEl.className = 'image-status done';
+          }
+        }
+      } catch (err) {
+        error.style.display = 'block';
+        error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = '';
+        console.error(err);
+      }
+    }
+
+    async function loadImagesAsync(parsed, data) {
+      const statusEl = document.getElementById('imageStatus');
+      let loaded = 0;
+      const total = parsed.assets.length;
+
+      console.log(`[ImageLoader] Starting async image loading for ${total} assets`);
+
+      // First, collect all placeholder images in DOM order
+      const placeholders = Array.from(viewer.querySelectorAll('img[data-placeholder="true"]'));
+      let placeholderIdx = 0;
+
+      // Load images one by one (non-blocking)
+      for (let i = 0; i < parsed.assets.length; i++) {
+        const asset = parsed.assets[i];
+        const isPlaceholder = is_placeholder_asset(asset);
+        const hasRawBytes = asset.bytes && asset.bytes.length > 0;
+        const isEmf = asset.mime === 'image/emf' || asset.mime === 'image/wmf';
+        
+        console.log(`[ImageLoader] Asset ${i}: mime=${asset.mime}, bytes=${asset.bytes?.length || 0}, placeholder=${isPlaceholder}`);
+
+        if (!isPlaceholder) {
+          console.log(`[ImageLoader] Asset ${i}: Already processed, skipping`);
+          loaded++;
+          continue;
+        }
+
+        if (!hasRawBytes) {
+          console.log(`[ImageLoader] Asset ${i}: No raw bytes, skipping`);
+          loaded++;
+          continue;
+        }
+
+        try {
+          console.log(`[ImageLoader] Asset ${i}: Processing ${asset.mime} (${(asset.bytes.length / 1024).toFixed(0)} KB)...`);
+          const t0 = performance.now();
+          
+          let img;
+          
+          // Use EMF converter for EMF/WMF files
+          if (isEmf) {
+            console.log(`[ImageLoader] Asset ${i}: Using EMF converter for ${asset.mime}`);
+            const svgResult = await emfConverter.convert(asset.bytes, asset.mime);
+            img = {
+              mime: 'image/svg+xml',
+              data_url: 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgResult.svg))),
+              width: svgResult.width,
+              height: svgResult.height
+            };
+          } else {
+            // Use standard extraction for other formats
+            img = unwrap(extract_image_with_fallback(parsed, i));
+          }
+          
+          const elapsed = performance.now() - t0;
+          
+          console.log(`[ImageLoader] Asset ${i}: Processed in ${elapsed.toFixed(0)}ms, result: mime=${img.mime}, data_url=${img.data_url?.length || 0} chars`);
+          
+          // Check if we got a real image (not a placeholder)
+          if (img && img.data_url && !img.data_url.includes('placeholder:')) {
+            // Find the next unprocessed placeholder in DOM
+            if (placeholderIdx < placeholders.length) {
+              const placeholder = placeholders[placeholderIdx];
+              placeholder.src = img.data_url;
+              placeholder.removeAttribute('data-placeholder');
+              console.log(`[ImageLoader] Asset ${i}: Updated DOM image at placeholder ${placeholderIdx}`);
+              placeholderIdx++;
+            } else {
+              console.warn(`[ImageLoader] Asset ${i}: No more placeholders in DOM`);
+            }
+          } else {
+            console.warn(`[ImageLoader] Asset ${i}: Processing returned placeholder or empty`);
+          }
+          
+          loaded++;
+          if (statusEl) {
+            statusEl.textContent = 'Loading images... ' + loaded + '/' + total;
+          }
+          // Yield to browser for rendering
+          await new Promise(r => setTimeout(r, 0));
+        } catch (e) {
+          console.error(`[ImageLoader] Asset ${i}: Failed`, e);
+          loaded++;
+        }
+      }
+
+      console.log(`[ImageLoader] Complete: ${loaded}/${total} images processed`);
+      if (statusEl) {
+        statusEl.textContent = 'All ' + loaded + ' images loaded';
+        statusEl.className = 'image-status done';
+      }
+    }
+  </script>
+</body>
+</html>

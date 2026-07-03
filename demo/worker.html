@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MS-DOC Viewer - Web Worker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 20px; }
+    .badge { display: inline-block; background: #FF9800; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+    .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 50px 30px; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
+    .upload-area:hover, .upload-area.dragover { border-color: #FF9800; background: #FFF3E0; }
+    .upload-area p { font-size: 16px; color: #666; }
+    .viewer { border: 1px solid #ddd; border-radius: 10px; padding: 24px; margin-top: 16px; min-height: 180px; background: white; }
+    .error { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; }
+    .info { color: #E65100; background: #FFF3E0; padding: 12px; border-radius: 6px; margin-top: 12px; display: none; font-size: 13px; line-height: 1.6; }
+    .status { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; color: #666; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+    .status-dot.ready { background: #4CAF50; }
+    .status-dot.working { background: #FF9800; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    .back { display: inline-block; margin-bottom: 16px; color: #FF9800; text-decoration: none; font-size: 14px; }
+    .back:hover { text-decoration: underline; }
+    .image-status { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
+    .image-status.done { background: #4CAF50; }
+    .image-status.loading { background: #FF9800; animation: pulse 1s infinite; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All Demos</a>
+  <h1>MS-DOC Viewer <span class="badge">Web Worker</span></h1>
+  <p class="subtitle">MoonBit JS in Web Worker with parallel image extraction</p>
+
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Initializing worker...</span>
+  </div>
+
+  <div class="upload-area" id="dropZone">
+    <p>Drag & drop a .doc file here, or click to select</p>
+    <input type="file" id="fileInput" accept=".doc" style="display:none">
+  </div>
+
+  <div class="info" id="info"></div>
+  <div class="error" id="error"></div>
+  <div class="viewer" id="viewer"></div>
+
+  <script type="module">
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const viewer = document.getElementById('viewer');
+    const info = document.getElementById('info');
+    const error = document.getElementById('error');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+
+    let worker = null;
+    let requestId = 0;
+    const pending = new Map();
+
+    function initWorker() {
+      worker = new Worker(new URL('../worker/worker_wrapper.js', import.meta.url), { type: 'module' });
+
+      worker.onmessage = (e) => {
+        const { id, type, result, error: err } = e.data;
+        if (type === 'ready') {
+          statusDot.className = 'status-dot ready';
+          statusText.textContent = 'Worker ready';
+          return;
+        }
+        const p = pending.get(id);
+        if (p) {
+          pending.delete(id);
+          if (err) {
+            console.error(`[Worker] ${type}#${id} ERROR:`, err);
+            p.reject(new Error(err));
+          } else {
+            console.log(`[Worker] ${type}#${id} OK, result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
+            p.resolve(result);
+          }
+        }
+      };
+
+      worker.onerror = (e) => {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Worker error';
+        console.error('Worker error:', e);
+      };
+    }
+
+    function callWorker(type, data, extra = {}) {
+      return new Promise((resolve, reject) => {
+        const id = ++requestId;
+        pending.set(id, { resolve, reject });
+        console.log(`[Worker] Calling ${type}#${id}`, extra);
+        worker.postMessage({ type, data, id, ...extra });
+      });
+    }
+
+    function waitForReady() {
+      return new Promise((resolve) => {
+        const check = (e) => {
+          if (e.data.type === 'ready') {
+            worker.removeEventListener('message', check);
+            resolve();
+          }
+        };
+        worker.addEventListener('message', check);
+      });
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    async function loadFile(file) {
+      try {
+        error.style.display = 'none';
+        info.style.display = 'none';
+        viewer.innerHTML = '';
+
+        if (!worker) {
+          initWorker();
+          await waitForReady();
+        }
+
+        const buffer = await file.arrayBuffer();
+        const data = new Uint8Array(buffer);
+
+        statusDot.className = 'status-dot working';
+        statusText.textContent = 'Parsing...';
+
+        // Phase 1: Parse and render (in worker)
+        const t0 = performance.now();
+        const rawResult = await callWorker('render', data);
+        const parseTime = performance.now() - t0;
+
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = 'Worker ready';
+
+        console.log(`[Worker] Raw result length: ${rawResult.length}`);
+        console.log(`[Worker] Raw result first 200 chars:`, rawResult.substring(0, 200));
+
+        const sep = rawResult.indexOf('|||SEPARATOR|||');
+        console.log(`[Worker] SEPARATOR index: ${sep}`);
+
+        const css = rawResult.substring(0, sep);
+        const rest = rawResult.substring(sep + 15);
+        const assetsSep = rest.indexOf('|||ASSETS|||');
+        console.log(`[Worker] ASSETS index in rest: ${assetsSep}`);
+
+        let html, assetOffsets = [];
+        if (assetsSep >= 0) {
+          html = rest.substring(0, assetsSep);
+          const offsetsStr = rest.substring(assetsSep + 12);
+          console.log(`[Worker] Offsets string: "${offsetsStr}"`);
+          if (offsetsStr.length > 0) {
+            assetOffsets = offsetsStr.split(',').map(Number);
+            console.log(`[Worker] Parsed asset offsets:`, assetOffsets);
+          }
+        } else {
+          html = rest;
+          console.warn('[Worker] No |||ASSETS||| separator found');
+        }
+
+        info.style.display = 'block';
+        info.innerHTML =
+          '<strong>Worker Result (Parallel Images)</strong><br>' +
+          'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
+          'HTML: ' + html.length + ' chars<br>' +
+          'Asset offsets: ' + JSON.stringify(assetOffsets) + '<br>' +
+          'Parse+Render: ' + parseTime.toFixed(1) + ' ms (background thread)<br>' +
+          '<span class="image-status loading" id="imageStatus">Loading images in parallel...</span>';
+
+        viewer.innerHTML = '<style>' + css + '</style>' + html;
+
+        // Phase 2: Extract images in parallel using worker
+        await loadImagesParallel(data, assetOffsets);
+      } catch (err) {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Error';
+        error.style.display = 'block';
+        error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = '';
+        console.error(err);
+      }
+    }
+
+    async function loadImagesParallel(data, assetOffsets) {
+      const statusEl = document.getElementById('imageStatus');
+
+      try {
+        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
+        console.log(`[Worker] Found ${placeholderEls.length} placeholder images in DOM`);
+
+        if (placeholderEls.length === 0) {
+          const allImgs = viewer.querySelectorAll('img');
+          console.log(`[Worker] Total <img> tags: ${allImgs.length}`);
+          allImgs.forEach((img, i) => {
+            console.log(`  img[${i}]: src=${img.src?.substring(0, 60)}... data-placeholder=${img.getAttribute('data-placeholder')}`);
+          });
+          if (statusEl) {
+            statusEl.textContent = 'No placeholder images found';
+            statusEl.className = 'image-status done';
+          }
+          return;
+        }
+
+        let loaded = 0;
+        for (let i = 0; i < placeholderEls.length; i++) {
+          try {
+            const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
+            console.log(`[Worker] Image ${i}: offset=${offset}, DOM element:`, placeholderEls[i].src?.substring(0, 60));
+
+            if (offset < 0) {
+              console.warn(`[Worker] Image ${i}: No offset available, skipping`);
+              loaded++;
+              continue;
+            }
+
+            const result = await callWorker('extractImage', data, { offset });
+            console.log(`[Worker] Image ${i}: extract result type=${typeof result}, starts with data: ${result?.startsWith('data:')}, includes svg+xml: ${result?.includes('svg+xml')}, length=${result?.length}`);
+
+            if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
+              placeholderEls[i].src = result;
+              placeholderEls[i].removeAttribute('data-placeholder');
+              console.log(`[Worker] Image ${i}: DOM updated successfully`);
+            } else {
+              console.warn(`[Worker] Image ${i}: Result filtered out (placeholder or invalid)`);
+            }
+
+            loaded++;
+            if (statusEl) {
+              statusEl.textContent = 'Loading images... ' + loaded + '/' + placeholderEls.length;
+            }
+            await new Promise(r => setTimeout(r, 0));
+          } catch (e) {
+            console.error(`[Worker] Image ${i}: FAILED`, e);
+            loaded++;
+          }
+        }
+
+        console.log(`[Worker] Complete: ${loaded}/${placeholderEls.length} images processed`);
+        if (statusEl) {
+          statusEl.textContent = 'All ' + loaded + ' images processed';
+          statusEl.className = 'image-status done';
+        }
+      } catch (e) {
+        console.error('[Worker] Image loading failed:', e);
+        if (statusEl) {
+          statusEl.textContent = 'Image loading failed';
+          statusEl.className = 'image-status';
+        }
+      }
+    }
+
+    initWorker();
+  </script>
+</body>
+</html>
