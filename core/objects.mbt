@@ -59,6 +59,57 @@ pub fn detect_image_format(bytes : FixedArray[Byte]) -> String {
   "unknown"
 }
 
+///| Detect MIME type from file magic bytes (broader than detect_image_format)
+pub fn detect_mime_from_bytes(bytes : FixedArray[Byte]) -> String {
+  if bytes.length() < 4 {
+    return "application/octet-stream"
+  }
+  // Images
+  let img = detect_image_format(bytes)
+  if img != "unknown" {
+    return img
+  }
+  // PDF: %PDF
+  if bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46 {
+    return "application/pdf"
+  }
+  // ZIP (covers OOXML, JAR, etc.): PK..
+  if bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04 {
+    return "application/zip"
+  }
+  // RAR: Rar!..
+  if bytes[0] == 0x52 && bytes[1] == 0x61 && bytes[2] == 0x72 && bytes[3] == 0x21 {
+    return "application/x-rar-compressed"
+  }
+  // 7z: 7z..
+  if bytes[0] == 0x37 && bytes[1] == 0x7A && bytes[2] == 0xBC && bytes[3] == 0xAF {
+    return "application/x-7z-compressed"
+  }
+  // GZIP: ..
+  if bytes[0] == 0x1F && bytes[1] == 0x8B {
+    return "application/gzip"
+  }
+  // MS Office OLE2 (DOC/XLS/PPT): D0 CF 11 E0
+  if bytes[0] == 0xD0 && bytes[1] == 0xCF && bytes[2] == 0x11 && bytes[3] == 0xE0 {
+    return "application/vnd.ms-object"
+  }
+  // OpenDocument (ODF): PK + mimetype
+  if bytes.length() >= 30 && bytes[0] == 0x50 && bytes[1] == 0x4B {
+    if bytes[26] == 0x6D && bytes[27] == 0x69 && bytes[28] == 0x74 && bytes[29] == 0x65 {
+      return "application/vnd.oasis.opendocument.*"
+    }
+  }
+  // TrueType font: offset 0 has specific tags
+  if bytes[0] == 0x00 && bytes[1] == 0x01 && bytes[2] == 0x00 && bytes[3] == 0x00 {
+    return "font/ttf"
+  }
+  // OpenType font: OTTO
+  if bytes[0] == 0x4F && bytes[1] == 0x54 && bytes[2] == 0x54 && bytes[3] == 0x4F {
+    return "font/otf"
+  }
+  "application/octet-stream"
+}
+
 ///| Extract image dimensions from PICF/PICMID structure
 ///| PICF is 68 bytes, PICMID starts at offset 36
 ///| Returns (width_twips, height_twips, mx, my) or None if not available
@@ -528,6 +579,44 @@ pub fn extract_raw_image_asset(
   let reader = BinaryReader::make(data_bytes)
   let lcb = reader.i32(picture_offset)
   let cb_header = reader.u16(picture_offset + 4)
+
+  // Detect NilPICFAndBinData: cbHeader=0x44 and 62 ignored bytes are all zero
+  // Per MS-DOC §2.9.158: cbHeader MUST be 0x44, followed by 62 zero bytes
+  if cb_header == 0x44 && picture_offset + 68 <= data_bytes.length() {
+    let mut all_zero = true
+    for i in 0..<62 {
+      if data_bytes[picture_offset + 6 + i] != 0 {
+        all_zero = false
+        break
+      }
+    }
+    if all_zero {
+      // This is NilPICFAndBinData (binary data for hyperlink/form field/addin)
+      // Return as attachment with detected MIME type
+      let bin_start = picture_offset + 68
+      let bin_size = if lcb > 68 && bin_start + (lcb - 68) <= data_bytes.length() {
+        lcb - 68
+      } else {
+        0
+      }
+      if bin_size > 0 {
+        let bin_data = FixedArray::makei(bin_size, fn(i) { data_bytes[bin_start + i] })
+        let detected_mime = detect_mime_from_bytes(bin_data)
+        return Some(Asset::{
+          id: "asset-bin-\{picture_offset.to_string()}",
+          asset_type: "attachment",
+          name: "binary-data",
+          mime: detected_mime,
+          bytes: bin_data,
+          data_url: data_url_from_bytes(bin_data, detected_mime),
+          width: 0,
+          height: 0,
+        })
+      }
+      return None
+    }
+  }
+
   let total = if lcb > 0 && picture_offset + lcb <= data_bytes.length() {
     lcb
   } else {
@@ -866,6 +955,144 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> Option[OLE10Info] {
   None
 }
 
+///| Parsed HFD (Hyperlink Field Data) result
+struct HFDInfo {
+  is_new_window : Bool
+  has_location : Bool
+  has_tooltip : Bool
+  url : String
+}
+
+///| Parse HFD (Hyperlink Field Data) structure from binData
+///| Per MS-DOC §2.9.115: bits(1) + clsid(16) + hyperlink(variable)
+///| Simple implementation: scans for printable URL string
+pub fn parse_hfd(bytes : FixedArray[Byte]) -> Option[HFDInfo] {
+  if bytes.length() < 17 {
+    return None
+  }
+  // bits byte
+  let bits = bytes[0].to_int()
+  let is_new_window = (bits.land(0x01)) != 0
+  let has_location = (bits.land(0x08)) != 0
+  let has_tooltip = (bits.land(0x10)) != 0
+
+  // Skip clsid (16 bytes), start scanning from offset 17
+  // Hyperlink Object contains URL as a string — scan for printable sequence
+  let mut url_start = -1
+  let mut url_end = -1
+  for i in 17..<bytes.length() {
+    let b = bytes[i].to_int()
+    // URL typically starts with http/https/ftp or file://
+    if url_start < 0 {
+      // Look for start of printable ASCII sequence (>= 0x20, < 0x7F)
+      if b >= 0x20 && b < 0x7F {
+        url_start = i
+      }
+    } else {
+      // End of URL: non-printable or control char
+      if b < 0x20 || b >= 0x7F {
+        url_end = i
+        break
+      }
+    }
+  }
+  if url_start >= 0 && url_end > url_start {
+    let reader = BinaryReader::make(bytes)
+    let url = reader.latin1(url_start, url_end - url_start)
+    // Validate it looks like a URL or file path
+    if url.length() > 3 {
+      return Some(HFDInfo::{
+        is_new_window,
+        has_location,
+        has_tooltip,
+        url,
+      })
+    }
+  }
+  None
+}
+
+///| Parsed FFData (Form Field Data) result
+struct FFDataInfo {
+  field_type : String  // "text", "checkbox", "dropdown"
+  name : String
+  default_text : String
+  checked : Bool
+  selected_index : Int
+}
+
+///| Read an Xstz (length-prefixed string with null terminator) from bytes
+///| Xstz = 2-byte cch + cch bytes of string data + null terminator
+fn read_xstz(bytes : FixedArray[Byte], offset : Int) -> (String, Int) {
+  if offset + 2 > bytes.length() {
+    return ("", offset)
+  }
+  let cch = (bytes[offset].to_int()) | (bytes[offset + 1].to_int() << 8)
+  let str_start = offset + 2
+  let str_end = str_start + cch
+  if str_end > bytes.length() {
+    return ("", offset)
+  }
+  let reader = BinaryReader::make(bytes)
+  let value = reader.latin1(str_start, cch)
+  // Skip null terminator if present
+  let next = if str_end < bytes.length() && bytes[str_end] == 0 {
+    str_end + 1
+  } else {
+    str_end
+  }
+  (value, next)
+}
+
+///| Parse FFData (Form Field Data) structure from binData
+///| Per MS-DOC §2.9.78: version(4) + bits(2) + cch(2) + hps(2) + xstzName + xstzTextDef + ...
+pub fn parse_ffdata(bytes : FixedArray[Byte]) -> Option[FFDataInfo] {
+  if bytes.length() < 10 {
+    return None
+  }
+  let reader = BinaryReader::make(bytes)
+  // version (4 bytes) — MUST be 0xFFFFFFFF
+  let version = reader.u32(0)
+  if version != 0xFFFFFFFF {
+    return None
+  }
+  // bits (2 bytes) — FFDataBits
+  let bits_val = reader.u16(4)
+  let i_type = bits_val.land(0x3)  // bits 0-1: 0=text, 1=checkbox, 2=dropdown
+  let i_res = (bits_val.lsr(2)).land(0x1F)  // bits 2-6: current value
+
+  // cch (2 bytes) — max length (for text fields)
+  // hps (2 bytes) — checkbox size (for checkbox fields)
+  // Skip to xstzName at offset 10
+  let (name, next1) = read_xstz(bytes, 10)
+
+  let mut default_text = ""
+  let mut checked = false
+  let mut selected_index = 0
+
+  if i_type == 0 {
+    // Text field — xstzTextDef follows name
+    let (text_def, _) = read_xstz(bytes, next1)
+    default_text = text_def
+  } else if i_type == 1 {
+    // Checkbox — wDef (2 bytes) follows name
+    checked = i_res == 1
+  } else if i_type == 2 {
+    // Dropdown — wDef (2 bytes) follows name
+    selected_index = i_res
+  }
+
+  let field_type = if i_type == 0 { "text" } else if i_type == 1 { "checkbox" } else { "dropdown" }
+
+  Some(FFDataInfo::{
+    field_type,
+    name,
+    default_text,
+    checked,
+    selected_index,
+  })
+}
+
 ///| Check if a stream name matches a pattern (handles control-char prefixes)
 fn stream_name_matches(entry : CFBEntry, pattern : String) -> Bool {
   // Case-insensitive match: compare uppercase versions
@@ -898,13 +1125,14 @@ fn read_object_storage(
           Some(bytes) => {
             match parse_ole10_native(bytes) {
               Some(native_info) => {
+                let detected_mime = detect_mime_from_bytes(native_info.bytes)
                 attachment = Some(Asset::{
                   id: "asset-ole",
                   asset_type: "attachment",
                   name: native_info.label,
-                  mime: "application/octet-stream",
+                  mime: detected_mime,
                   bytes: native_info.bytes,
-                  data_url: data_url_from_bytes(native_info.bytes, "application/octet-stream"),
+                  data_url: data_url_from_bytes(native_info.bytes, detected_mime),
                   width: 0,
                   height: 0,
                 })
@@ -924,18 +1152,53 @@ fn read_object_storage(
         match cfb_get_stream_by_id(container, child.id) {
           Some(bytes) => {
             if attachment is None {
-              // Treat CONTENTS streams as attachments (matches JS reference)
-              // JS creates attachment for any package/contents/content stream
-              attachment = Some(Asset::{
-                id: "asset-pkg-\{entry.name}",
-                asset_type: "attachment",
-                name: "\{entry.name}.bin",
-                mime: "application/octet-stream",
-                bytes: bytes,
-                data_url: data_url_from_bytes(bytes, "application/octet-stream"),
-                width: 0,
-                height: 0,
-              })
+              // Check for PSD-wrapped EMF: 5-byte PSD header ("8BPS\0") followed by EMF
+              let is_psd_emf = bytes.length() >= 9 && bytes[0] == 0x38 && bytes[1] == 0x42 && bytes[2] == 0x50 && bytes[3] == 0x53 && bytes[4] == 0x00 && bytes[5] == 0x01 && bytes[6] == 0x00 && bytes[7] == 0x00 && bytes[8] == 0x00
+
+              // Check for direct EMF: magic bytes 01 00 00 00
+              let is_direct_emf = bytes.length() >= 4 && bytes[0] == 0x01 && bytes[1] == 0x00 && bytes[2] == 0x00 && bytes[3] == 0x00
+
+              if is_psd_emf {
+                // PSD-wrapped EMF: skip 5-byte PSD header, extract EMF
+                let emf_bytes = FixedArray::makei(bytes.length() - 5, fn(i) { bytes[i + 5] })
+                let (w, h) = extract_image_dimensions(emf_bytes)
+                attachment = Some(Asset::{
+                  id: "asset-cnt-\{entry.name}",
+                  asset_type: "image",
+                  name: entry.name,
+                  mime: "image/emf",
+                  bytes: emf_bytes,
+                  data_url: "",
+                  width: w,
+                  height: h,
+                })
+              } else if is_direct_emf {
+                // Direct EMF in CONTENTS stream
+                let (w, h) = extract_image_dimensions(bytes)
+                attachment = Some(Asset::{
+                  id: "asset-cnt-\{entry.name}",
+                  asset_type: "image",
+                  name: entry.name,
+                  mime: "image/emf",
+                  bytes: bytes,
+                  data_url: "",
+                  width: w,
+                  height: h,
+                })
+              } else {
+                // Not EMF — detect MIME type from magic bytes
+                let detected_mime = detect_mime_from_bytes(bytes)
+                attachment = Some(Asset::{
+                  id: "asset-pkg-\{entry.name}",
+                  asset_type: "attachment",
+                  name: "\{entry.name}.bin",
+                  mime: detected_mime,
+                  bytes: bytes,
+                  data_url: data_url_from_bytes(bytes, detected_mime),
+                  width: 0,
+                  height: 0,
+                })
+              }
             }
           }
           None => ignore(child)
