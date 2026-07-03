@@ -8,6 +8,10 @@ High-performance MS-DOC (.doc binary Word) parser and renderer, compiled from Mo
 - **Web Worker support**: Offload parsing to background threads
 - **WASM browser support**: Both WASM and WASM-GC run directly in browser
 - **Modular architecture**: Core parser and worker packages
+- **Rich content parsing**: Text, tables, images (PNG/JPEG/EMF/WMF), headers/footers, textboxes, footnotes/endnotes
+- **OLE object extraction**: OLE10Native attachments, EPRINT streams, PSD-wrapped EMF
+- **Document metadata**: Summary Information (title, author, subject)
+- **Page layout**: Section properties (margins, orientation, columns)
 
 ## Multi-Target Build Architecture
 
@@ -232,7 +236,7 @@ Functions that can raise return `(tag: i32, result: i32)`:
 
 ### Prerequisites
 
-- [MoonBit](https://www.moonbitlang.com/) toolchain
+- [MoonBit](https://www.moonbitlang.com/) toolchain (tested with moon v0.1.20260608, moonc v0.10.0)
 
 ### Build
 

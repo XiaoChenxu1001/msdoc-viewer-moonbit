@@ -545,7 +545,7 @@ fn render_run_html(run : RenderRun) -> String {
 
   if run.underline > 0 {
     let name = underline_name(run.underline)
-    if name != "none" {
+    if name != "none" && name != "hidden" {
       deco_line <+ "underline"
       deco_style_val = if name == "double" || name == "wavy-double" {
         "double"
