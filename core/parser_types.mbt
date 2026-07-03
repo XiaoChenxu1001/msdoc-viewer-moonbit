@@ -178,13 +178,26 @@ pub struct HeaderFooter {
   section_index : Int
 }
 
-///| Section properties for header/footer control
+///| Section properties for header/footer control and page layout
 pub struct SectionProperties {
   index : Int
+  // Header/Footer control
   has_title_page : Bool      // sprmSFTitlePage: first page gets its own header/footer
-  header_distance : Int       // sprmSDyaHdrTop: distance from page top to header (twips)
-  footer_distance : Int       // sprmSDyaHdrBottom: distance from page bottom to footer (twips)
-  break_type : Int            // sprmSBkc: section break type (0=continuous, 2=new page, etc.)
+  header_distance : Int       // sprmSDyaHdrTop: distance from page top to header (twips, default 720)
+  footer_distance : Int       // sprmSDyaHdrBottom: distance from page bottom to footer (twips, default 720)
+  break_type : Int            // sprmSBkc: section break type (0=continuous, 2=new page)
+  // Page layout
+  page_width : Int            // sprmSXaPage: page width in twips (default 12240 = 8.5 inches)
+  page_height : Int           // sprmSYaPage: page height in twips (default 15840 = 11 inches)
+  orientation : Int           // sprmSOrientPage: 0=portrait, 1=landscape
+  // Page margins
+  margin_top : Int            // sprmSDyaTop: top margin (twips, default 1440 = 1 inch)
+  margin_bottom : Int         // sprmSDyaBottom: bottom margin (twips, default 1440)
+  margin_left : Int           // sprmSDxaLeft: left margin (twips, default 1800 = 1.25 inches)
+  margin_right : Int          // sprmSDxaRight: right margin (twips, default 1800)
+  // Columns
+  column_count : Int          // sprmNBpc: number of columns (default 1)
+  column_spacing : Int        // sprmSClm: space between columns (twips)
 }
 
 ///| Footnote/Endnote content

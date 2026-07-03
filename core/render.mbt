@@ -149,7 +149,16 @@ pub fn render_parsed(parsed : MsDocParseResult) -> RenderResult {
 ///| Render parsed result to HTML with optional custom CSS
 pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) -> RenderResult {
   // Generate CSS: use custom if provided, else default
-  let css = if custom_css.length() > 0 { custom_css } else { get_default_css() }
+  let base_css = if custom_css.length() > 0 { custom_css } else { get_default_css() }
+
+  // Append section properties as @page CSS if available
+  let css = if parsed.sections.length() > 0 {
+    let sec = parsed.sections[0]
+    let orient = if sec.orientation == 1 { " landscape" } else { "" }
+    base_css + "\n@page{size:\{sec.page_width}twip \{sec.page_height}twip\{orient};margin:\{sec.margin_top}twip \{sec.margin_right}twip \{sec.margin_bottom}twip \{sec.margin_left}twip}"
+  } else {
+    base_css
+  }
 
   // Generate HTML
   let html = StringBuilder::new()
