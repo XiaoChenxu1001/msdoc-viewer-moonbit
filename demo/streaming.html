@@ -23,24 +23,21 @@
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
     .back { display: inline-block; margin-bottom: 16px; color: #4CAF50; text-decoration: none; font-size: 14px; }
     .back:hover { text-decoration: underline; }
-    .progress-bar { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
-    .progress-bar .fill { height: 100%; background: #4CAF50; transition: width 0.1s; width: 0%; }
     .chunk-indicator { font-size: 11px; color: #999; margin-top: 4px; }
     .image-status { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
     .image-status.done { background: #4CAF50; }
+    .image-status.loading { background: #FF9800; animation: pulse 1s infinite; }
   </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; All Demos</a>
   <h1>MS-DOC Viewer <span class="badge">Streaming</span></h1>
-  <p class="subtitle">Progressive rendering: content appears as it's parsed, not all at once</p>
+  <p class="subtitle">Progressive rendering: DOM updates as HTML chunks arrive</p>
 
   <div class="status">
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Initializing worker...</span>
   </div>
-
-  <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
   <div class="chunk-indicator" id="chunkIndicator"></div>
 
   <div class="upload-area" id="dropZone">
@@ -60,70 +57,32 @@
     const error = document.getElementById('error');
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
-    const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
     const chunkIndicator = document.getElementById('chunkIndicator');
 
     let worker = null;
     let requestId = 0;
     const pending = new Map();
-    let streamChunks = [];
-    let streamCss = '';
-    let streamTotalBlocks = 0;
-    let streamReceived = 0;
-    let streamWaitingFor = null;
-    let streamData = null;
-    let streamOffsets = [];
 
     function initWorker() {
       worker = new Worker(new URL('../worker/worker_wrapper.js', import.meta.url), { type: 'module' });
-
       worker.onmessage = (e) => {
         const { id, type, result, error: err } = e.data;
-        if (type === 'ready') { statusDot.className = 'status-dot ready'; statusText.textContent = 'Worker ready'; return; }
-
-        if (type === 'streamChunk' && result) {
-          if (result.done) {
-            streamChunks.push(result.footer || '');
-            streamReceived = streamTotalBlocks;
-            renderStreamedContent();
-            statusDot.className = 'status-dot ready';
-            statusText.textContent = 'Loading images...';
-            progressBar.style.display = 'none';
-            loadImagesParallel(streamData, streamOffsets).then(async () => {
-              await callWorker('streamRelease');
-              statusText.textContent = 'Complete';
-              if (streamWaitingFor) { streamWaitingFor.resolve(); streamWaitingFor = null; }
-            });
-          } else {
-            streamChunks.push(result.html);
-            streamReceived = result.current || streamReceived;
-            renderStreamedContent();
-            if (streamTotalBlocks > 0) {
-              progressFill.style.width = Math.round((streamReceived / streamTotalBlocks) * 100) + '%';
-              chunkIndicator.textContent = `${streamReceived}/${streamTotalBlocks} blocks`;
-            }
-          }
+        if (type === 'ready') {
+          statusDot.className = 'status-dot ready';
+          statusText.textContent = 'Worker ready';
           return;
         }
-
-        if (type === 'streamInit' && result) {
-          streamCss = result.css || '';
-          streamTotalBlocks = result.totalBlocks || 0;
-          const offStr = result.offsets || '';
-          streamOffsets = offStr.length > 0 ? offStr.split(',').map(Number).filter(n => !isNaN(n) && n >= 0) : [];
-          streamChunks = [];
-          streamReceived = 0;
-          return;
-        }
-
         const p = pending.get(id);
         if (p) {
           pending.delete(id);
           if (err) { p.reject(new Error(err)); } else { p.resolve(result); }
         }
       };
-      worker.onerror = (e) => { statusDot.className = 'status-dot'; statusText.textContent = 'Error'; console.error(e); };
+      worker.onerror = (e) => {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Worker error';
+        console.error(e);
+      };
     }
 
     function callWorker(type, data, extra = {}) {
@@ -136,74 +95,129 @@
 
     function waitForReady() {
       return new Promise((resolve) => {
-        const check = (e) => { if (e.data.type === 'ready') { worker.removeEventListener('message', check); resolve(); } };
+        const check = (e) => {
+          if (e.data.type === 'ready') {
+            worker.removeEventListener('message', check);
+            resolve();
+          }
+        };
         worker.addEventListener('message', check);
       });
-    }
-
-    function renderStreamedContent() {
-      viewer.innerHTML = '<style>' + streamCss + '</style>' + streamChunks.join('');
-    }
-
-    async function loadImagesParallel(data, assetOffsets) {
-      const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-      if (placeholderEls.length === 0 || assetOffsets.length === 0) return;
-      let loaded = 0;
-      for (let i = 0; i < placeholderEls.length; i++) {
-        try {
-          const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
-          if (offset < 0) { loaded++; continue; }
-          const result = await callWorker('extractImage', data, { offset });
-          if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
-            placeholderEls[i].src = result;
-            placeholderEls[i].removeAttribute('data-placeholder');
-          }
-          loaded++;
-          chunkIndicator.textContent = `Loading images... ${loaded}/${placeholderEls.length}`;
-          await new Promise(r => setTimeout(r, 0));
-        } catch (e) { loaded++; }
-      }
-      chunkIndicator.textContent = `${loaded} images loaded`;
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
-    fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
 
     async function loadFile(file) {
       try {
-        error.style.display = 'none'; info.style.display = 'none'; viewer.innerHTML = '';
-        streamChunks = []; streamCss = ''; streamTotalBlocks = 0; streamReceived = 0; streamOffsets = [];
+        error.style.display = 'none';
+        info.style.display = 'none';
+        viewer.innerHTML = '';
 
-        if (!worker) { initWorker(); await waitForReady(); }
+        if (!worker) {
+          initWorker();
+          await waitForReady();
+        }
 
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
-        streamData = data;
 
         statusDot.className = 'status-dot working';
-        statusText.textContent = 'Parsing document...';
-        progressBar.style.display = 'block';
-        progressFill.style.width = '0%';
+        statusText.textContent = 'Parsing...';
 
+        // Phase 1: Full parse+render (same proven path as worker.html)
         const t0 = performance.now();
-        await callWorker('streamInit', data, { chunkSize: 30 });
-        await new Promise((resolve) => { streamWaitingFor = { resolve }; });
+        const rawResult = await callWorker('render', data);
+        const parseTime = performance.now() - t0;
+
+        // Parse the result
+        const sep = rawResult.indexOf('|||SEPARATOR|||');
+        const css = rawResult.substring(0, sep);
+        const rest = rawResult.substring(sep + 15);
+        const assetsSep = rest.indexOf('|||ASSETS|||');
+        let html, assetOffsets = [];
+        if (assetsSep >= 0) {
+          html = rest.substring(0, assetsSep);
+          const offsetsStr = rest.substring(assetsSep + 12);
+          if (offsetsStr.length > 0) {
+            assetOffsets = offsetsStr.split(',').map(Number);
+          }
+        } else {
+          html = rest;
+        }
+
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = 'Rendering chunks...';
+
+        // Phase 2: Progressive DOM rendering (chunk the HTML string)
+        const CHUNK_SIZE = 20000; // characters per chunk
+        const totalLen = html.length;
+        viewer.innerHTML = '<style>' + css + '</style>';
+
+        for (let i = 0; i < totalLen; i += CHUNK_SIZE) {
+          const chunk = html.substring(i, Math.min(i + CHUNK_SIZE, totalLen));
+          // Append chunk to viewer (not innerHTML which would replace)
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = chunk;
+          while (wrapper.firstChild) {
+            viewer.appendChild(wrapper.firstChild);
+          }
+          chunkIndicator.textContent = `Rendered ${Math.min(i + CHUNK_SIZE, totalLen)}/${totalLen} chars`;
+          // Yield to browser for repaint
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        chunkIndicator.textContent = '';
+        statusText.textContent = 'Loading images...';
+
+        // Phase 3: Extract images (same proven path as worker.html)
+        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
+        let loaded = 0;
+        for (let i = 0; i < placeholderEls.length; i++) {
+          try {
+            const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
+            if (offset < 0 || isNaN(offset)) { loaded++; continue; }
+            const result = await callWorker('extractImage', data, { offset });
+            if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
+              placeholderEls[i].src = result;
+              placeholderEls[i].removeAttribute('data-placeholder');
+            }
+            loaded++;
+            chunkIndicator.textContent = `Images: ${loaded}/${placeholderEls.length}`;
+            await new Promise(r => setTimeout(r, 0));
+          } catch (e) {
+            loaded++;
+          }
+        }
+
         const totalTime = performance.now() - t0;
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = 'Complete';
 
         info.style.display = 'block';
         info.innerHTML =
-          '<strong>Streaming Parse Results</strong><br>' +
+          '<strong>Streaming Results</strong><br>' +
           'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
-          'Blocks: ' + streamTotalBlocks + '<br>' +
-          'Images: ' + streamOffsets.length + '<br>' +
-          'Time: ' + totalTime.toFixed(1) + ' ms';
+          'Parse+Render: ' + parseTime.toFixed(0) + ' ms<br>' +
+          'Total: ' + totalTime.toFixed(0) + ' ms<br>' +
+          'Images: ' + loaded + '/' + placeholderEls.length + '<br>' +
+          'Mode: Progressive DOM rendering with chunked HTML injection';
+
       } catch (err) {
-        statusDot.className = 'status-dot'; statusText.textContent = 'Error';
-        error.style.display = 'block'; error.textContent = 'Error: ' + err.message;
-        viewer.innerHTML = ''; console.error(err);
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Error';
+        error.style.display = 'block';
+        error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = '';
+        console.error(err);
       }
     }
 
