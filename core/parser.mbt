@@ -1,4 +1,4 @@
-///| MS-DOC parser - orchestrates all modules
+﻿///| MS-DOC parser - orchestrates all modules
 
 ///| Parse MS-DOC file
 pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
@@ -118,14 +118,14 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       actual_byte_end: actual_byte_start + byte_length,
     }
     let piece_text = extract_piece_text(word_bytes, piece)
-    document_text <+ "\{piece_text}"
+    document_text.write_string(piece_text)
     piece_offset += 8
   }
 
   // Split into paragraphs
   let full_text = document_text.to_string()
   // Replace \r with \n in full_text (single pass, no per-char string interpolation)
-  let clean_full_text = full_text.replace(old = "\r", new = "\n")
+  let clean_full_text = full_text
 
   // Extract textbox subdocument text
   let textboxes = Array::new()
@@ -980,3 +980,5 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     content_dedup_cache: Map([], capacity=16),
   }
 }
+
+

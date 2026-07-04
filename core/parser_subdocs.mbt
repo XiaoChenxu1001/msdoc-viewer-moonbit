@@ -1,4 +1,4 @@
-///| Subdocument text extraction
+﻿///| Subdocument text extraction
 ///| Extracted from parser.mbt for better organization
 ///| Provides generic text extraction for all subdocument types
 
@@ -34,7 +34,7 @@ pub fn extract_subdocument_text(
         actual_byte_end: actual_byte_start + byte_length,
       }
       let piece_text = extract_piece_text(word_bytes, piece)
-      ignore(piece_text)
+      sb.write_string(piece_text)
     }
     piece_offset += 8
   }
@@ -147,3 +147,5 @@ pub fn extract_comment_text(
   let cp_end = cp_start + ccp_atn
   extract_subdocument_text(word_bytes, cps, plc_reader, pcd_count, cp_start, cp_end)
 }
+
+
