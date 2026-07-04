@@ -65,13 +65,12 @@
     let worker = null;
     let requestId = 0;
     const pending = new Map();
-    // For streaming: accumulate auto-streamed chunks
     let streamChunks = [];
     let streamCss = '';
     let streamTotalBlocks = 0;
     let streamReceived = 0;
     let streamWaitingFor = null;
-    let streamImagesJson = '[]';  // Pre-extracted image data URLs
+    let streamImageCount = 0;
 
     function initWorker() {
       worker = new Worker(new URL('../worker/worker_wrapper.js', import.meta.url), { type: 'module' });
@@ -84,34 +83,31 @@
           return;
         }
 
-        // Handle streaming auto-chunks (same id as init request)
+        // Handle streaming auto-chunks
         if (type === 'streamChunk' && result) {
           if (result.done) {
-            // Final footer chunk
             streamChunks.push(result.footer || '');
             streamReceived = streamTotalBlocks;
             renderStreamedContent();
-            // Apply pre-extracted images
-            applyPreExtractedImages(streamImagesJson);
             statusDot.className = 'status-dot ready';
-            statusText.textContent = 'Complete';
+            statusText.textContent = 'Loading images...';
             progressBar.style.display = 'none';
-            chunkIndicator.textContent = '';
-            // Resolve the waiting promise
-            if (streamWaitingFor) {
-              streamWaitingFor.resolve();
-              streamWaitingFor = null;
-            }
+            // Load images one at a time via streamGetImage
+            loadPreExtractedImages(streamImageCount).then(() => {
+              statusText.textContent = 'Complete';
+              if (streamWaitingFor) {
+                streamWaitingFor.resolve();
+                streamWaitingFor = null;
+              }
+            });
           } else {
-            // Body chunk
             streamChunks.push(result.html);
             streamReceived = result.current || streamReceived;
             renderStreamedContent();
-            // Update progress
             if (streamTotalBlocks > 0) {
               const pct = Math.round((streamReceived / streamTotalBlocks) * 100);
               progressFill.style.width = pct + '%';
-              chunkIndicator.textContent = `${streamReceived}/${streamTotalBlocks} blocks rendered`;
+              chunkIndicator.textContent = `${streamReceived}/${streamTotalBlocks} blocks`;
             }
           }
           return;
@@ -121,13 +117,12 @@
         if (type === 'streamInit' && result) {
           streamCss = result.css || '';
           streamTotalBlocks = result.totalBlocks || 0;
-          streamImagesJson = result.imagesJson || '[]';
+          streamImageCount = result.imageCount || 0;
           streamChunks = [];
           streamReceived = 0;
           return;
         }
 
-        // Standard pending promise resolution
         const p = pending.get(id);
         if (p) {
           pending.delete(id);
@@ -172,37 +167,36 @@
       viewer.innerHTML = '<style>' + streamCss + '</style>' + html;
     }
 
-    function applyPreExtractedImages(imagesJson) {
-      try {
-        const images = JSON.parse(imagesJson);
-        if (images.length === 0) return;
+    async function loadPreExtractedImages(imageCount) {
+      if (imageCount === 0) return;
+      const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
+      if (placeholderEls.length === 0) return;
 
-        // Build a map from asset index to data_url
-        const urlMap = new Map();
-        for (const img of images) {
-          urlMap.set(img.index, img.data_url);
-        }
+      console.log(`[Stream] Loading ${imageCount} pre-extracted images for ${placeholderEls.length} placeholders`);
+      let assetIdx = 0;
+      let replaced = 0;
 
-        // Find all placeholder images in DOM and replace them
-        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-        console.log(`[Stream] Applying ${images.length} pre-extracted images to ${placeholderEls.length} placeholders`);
-
-        let replaced = 0;
-        for (let i = 0; i < placeholderEls.length; i++) {
-          if (urlMap.has(i)) {
-            const dataUrl = urlMap.get(i);
-            if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml')) {
-              placeholderEls[i].src = dataUrl;
-              placeholderEls[i].removeAttribute('data-placeholder');
+      // Iterate through assets, find non-placeholder images, replace placeholders in DOM order
+      for (let i = 0; i < imageCount + placeholderEls.length; i++) {
+        try {
+          const dataUrl = await callWorker('streamGetImage', null, { offset: assetIdx });
+          if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml')) {
+            // Find the next placeholder in DOM and replace it
+            if (replaced < placeholderEls.length) {
+              placeholderEls[replaced].src = dataUrl;
+              placeholderEls[replaced].removeAttribute('data-placeholder');
               replaced++;
             }
           }
+          assetIdx++;
+          if (replaced >= placeholderEls.length) break;
+        } catch (e) {
+          console.error(`[Stream] Image ${assetIdx} failed:`, e);
+          assetIdx++;
         }
-        console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} placeholder images`);
-        chunkIndicator.textContent = `${replaced} images loaded`;
-      } catch (e) {
-        console.error('[Stream] Failed to apply images:', e);
       }
+      console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} placeholder images`);
+      chunkIndicator.textContent = `${replaced} images loaded`;
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
@@ -225,7 +219,7 @@
         streamCss = '';
         streamTotalBlocks = 0;
         streamReceived = 0;
-        streamImagesJson = '[]';
+        streamImageCount = 0;
 
         if (!worker) {
           initWorker();
@@ -241,11 +235,8 @@
         progressFill.style.width = '0%';
 
         const t0 = performance.now();
-
-        // Step 1: Initialize streaming parse (includes image extraction)
         await callWorker('streamInit', data, { chunkSize: 30 });
 
-        // Step 2: Wait for all auto-streamed chunks to arrive
         await new Promise((resolve) => {
           streamWaitingFor = { resolve };
         });
@@ -257,8 +248,8 @@
           '<strong>Streaming Parse Results</strong><br>' +
           'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
           'Total blocks: ' + streamTotalBlocks + '<br>' +
-          'Total time: ' + totalTime.toFixed(1) + ' ms<br>' +
-          'Mode: Progressive streaming (content appeared as parsed)';
+          'Images: ' + streamImageCount + '<br>' +
+          'Total time: ' + totalTime.toFixed(1) + ' ms';
 
       } catch (err) {
         statusDot.className = 'status-dot';

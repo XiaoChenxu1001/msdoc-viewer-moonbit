@@ -7,7 +7,7 @@
 ///| Phase 2: render_chunk() / render_footer_html() consume the context
 pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
   let result = parse_ms_doc(input)
-  // Pre-extract all images so the caller gets ready-to-use data URLs
+  // Pre-extract all images so placeholder SVGs are replaced with real data URLs
   let deferred = DeferredParseResult::{
     result,
     data_bytes: input,
@@ -15,11 +15,6 @@ pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
     image_cache: Map([], capacity=16),
   }
   let processed_assets = extract_all_deferred_images(deferred)
-  // Build image_data_urls array matching assets
-  let image_data_urls = Array::new()
-  for asset in processed_assets {
-    image_data_urls.push(asset.data_url)
-  }
   ParseContext::{
     blocks: result.blocks,
     text: result.text,
@@ -32,7 +27,6 @@ pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
     endnotes: result.endnotes,
     comments: result.comments,
     assets: processed_assets,
-    image_data_urls,
     meta: result.meta,
     fonts: result.fonts,
     styles: result.styles,
@@ -50,7 +44,6 @@ pub fn render_chunk(ctx : ParseContext, start : Int, count : Int) -> String {
   let end_idx = if start + count > block_count { block_count } else { start + count }
   let mut textbox_render_index = 0
   for i in start..<end_idx {
-    // Advance textbox_render_index past blocks before this chunk
     if i == start {
       for j in 0..<i {
         match ctx.blocks[j] {
@@ -88,11 +81,9 @@ pub fn render_chunk(ctx : ParseContext, start : Int, count : Int) -> String {
 }
 
 ///| Render footer content: headers, footers, footnotes, endnotes, comments
-///| Called after all body chunks have been rendered
 pub fn render_footer_html(ctx : ParseContext) -> String {
   let sb = StringBuilder::new()
 
-  // Headers and footers
   if ctx.headers.length() > 0 || ctx.footers.length() > 0 {
     sb <+ "<div class=\"msdoc-header-footer\">"
     if ctx.headers.length() > 0 {
@@ -116,7 +107,6 @@ pub fn render_footer_html(ctx : ParseContext) -> String {
     sb <+ "</div>"
   }
 
-  // Footnotes
   if ctx.footnotes.length() > 0 {
     sb <+ "<div class=\"msdoc-footnotes\">"
     sb <+ "<div class=\"msdoc-footnotes-title\">Notes</div>"
@@ -128,7 +118,6 @@ pub fn render_footer_html(ctx : ParseContext) -> String {
     sb <+ "</div>"
   }
 
-  // Endnotes
   if ctx.endnotes.length() > 0 {
     sb <+ "<div class=\"msdoc-endnotes\">"
     sb <+ "<div class=\"msdoc-endnotes-title\">Endnotes</div>"
@@ -140,7 +129,6 @@ pub fn render_footer_html(ctx : ParseContext) -> String {
     sb <+ "</div>"
   }
 
-  // Comments
   if ctx.comments.length() > 0 {
     sb <+ "<div class=\"msdoc-comments\">"
     sb <+ "<div class=\"msdoc-comments-title\">Comments</div>"
