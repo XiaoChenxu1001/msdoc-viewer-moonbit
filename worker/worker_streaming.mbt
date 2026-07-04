@@ -46,14 +46,20 @@ pub fn worker_stream_chunk(start : Int, count : Int) -> String {
 
 ///| Render footer content (headers, footers, footnotes, endnotes, comments)
 ///| Returns: HTML fragment string
+///| NOTE: does NOT release context - call worker_stream_release() after images are fetched
 pub fn worker_stream_footer() -> String {
   if _ctx_holder.length() == 0 {
     return "ERROR: No document loaded. Call worker_stream_init first."
   }
-  let html = @core.render_footer_html(_ctx_holder[0])
-  // Release context
-  ignore(_ctx_holder.unsafe_pop())
-  html
+  @core.render_footer_html(_ctx_holder[0])
+}
+
+///| Release the streaming context (call after all images are fetched)
+pub fn worker_stream_release() -> String {
+  if _ctx_holder.length() > 0 {
+    ignore(_ctx_holder.unsafe_pop())
+  }
+  "ok"
 }
 
 ///| Get a single pre-extracted image data URL by asset index

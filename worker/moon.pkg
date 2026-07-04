@@ -19,6 +19,7 @@ options(
         "worker_stream_chunk",
         "worker_stream_footer",
         "worker_stream_get_image",
+        "worker_stream_release",
       ],
     },
   },

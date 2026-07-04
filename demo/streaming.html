@@ -92,8 +92,9 @@
             statusDot.className = 'status-dot ready';
             statusText.textContent = 'Loading images...';
             progressBar.style.display = 'none';
-            // Load images one at a time via streamGetImage
-            loadPreExtractedImages(streamImageCount).then(() => {
+            // Load images one at a time via streamGetImage, then release context
+            loadPreExtractedImages(streamImageCount).then(async () => {
+              await callWorker('streamRelease');
               statusText.textContent = 'Complete';
               if (streamWaitingFor) {
                 streamWaitingFor.resolve();

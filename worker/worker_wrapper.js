@@ -5,7 +5,7 @@ import {
   worker_parse, worker_render, worker_parse_to_html,
   worker_extract_image, worker_extract_all_images,
   worker_stream_init, worker_stream_chunk, worker_stream_footer,
-  worker_stream_get_image,
+  worker_stream_get_image, worker_stream_release,
 } from '../_build/js/release/build/worker/worker.js';
 
 // Streaming state
@@ -60,8 +60,11 @@ self.onmessage = function(e) {
         break;
       }
       case 'streamGetImage': {
-        // Get a single pre-extracted image data URL
         result = worker_stream_get_image(offset);
+        break;
+      }
+      case 'streamRelease': {
+        result = worker_stream_release();
         break;
       }
       default:
