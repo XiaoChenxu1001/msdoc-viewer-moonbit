@@ -1,4 +1,4 @@
-﻿///| MS-DOC parser - orchestrates all modules
+///| MS-DOC parser - orchestrates all modules
 
 ///| Parse MS-DOC file
 pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
@@ -97,8 +97,9 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     cps.push(plc_reader.u32(i * 4))
   }
 
-  // Extract text from each piece using clx decode functions
+  // Extract text from each piece and build piece_entries in one pass
   let document_text = StringBuilder::new()
+  let piece_entries = Array::new()
   let mut piece_offset = (pcd_count + 1) * 4
   for i in 0..<pcd_count {
     let fc_raw = plc_reader.u32(piece_offset + 2)
@@ -106,19 +107,22 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     let fc = fc_raw & 0x3FFFFFFF
     let cp_start = cps[i]
     let cp_end = cps[i + 1]
-    if cp_start >= main_story_end {
-      piece_offset += 8
-      continue
+    let byte_start = if compressed { fc / 2 } else { fc }
+    let bytes_per_char = if compressed { 1 } else { 2 }
+    let byte_end = byte_start + (cp_end - cp_start) * bytes_per_char
+    piece_entries.push(PieceEntry::{
+      cp_start, cp_end, fc_start: byte_start, fc_end: byte_end, compressed,
+    })
+    if cp_start < main_story_end {
+      let byte_length = byte_end - byte_start
+      let piece = Piece::{
+        index: i, compressed, fc, cp_start, cp_end,
+        actual_byte_start: byte_start, byte_length,
+        actual_byte_end: byte_end,
+      }
+      let piece_text = extract_piece_text(word_bytes, piece)
+      document_text.write_string(piece_text)
     }
-    let actual_byte_start = if compressed { fc / 2 } else { fc }
-    let byte_length = if compressed { cp_end - cp_start } else { (cp_end - cp_start) * 2 }
-    let piece = Piece::{
-      index: i, compressed, fc, cp_start, cp_end,
-      actual_byte_start, byte_length,
-      actual_byte_end: actual_byte_start + byte_length,
-    }
-    let piece_text = extract_piece_text(word_bytes, piece)
-    document_text.write_string(piece_text)
     piece_offset += 8
   }
 
@@ -132,19 +136,19 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   let ccp_txbx = if cslw_offset + 2 + 9 * 4 + 4 <= word_bytes.length() {
     fib_reader.u32(cslw_offset + 2 + 9 * 4)
   } else { 0 }
+  let ccp_ftn = fib_reader.u32(cslw_offset + 2 + 4 * 4)
+  let ccp_hdd = fib_reader.u32(cslw_offset + 2 + 5 * 4)
+  let ccp_atn = fib_reader.u32(cslw_offset + 2 + 7 * 4)
+  let ccp_edn = fib_reader.u32(cslw_offset + 2 + 8 * 4)
+  let ccp_hdr_txbx = if cslw_offset + 2 + 10 * 4 + 4 <= word_bytes.length() {
+    fib_reader.u32(cslw_offset + 2 + 10 * 4)
+  } else { 0 }
   let fc_plcftxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 56 * 8)
   let lcb_plcftxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 56 * 8 + 4)
 
-  // Extract textbox subdocument text from piece table
-  let textbox_full = if ccp_txbx > 0 {
-    let ccp_ftn = fib_reader.u32(cslw_offset + 2 + 4 * 4)
-    let ccp_hdd = fib_reader.u32(cslw_offset + 2 + 5 * 4)
-    let ccp_atn = fib_reader.u32(cslw_offset + 2 + 7 * 4)
-    let ccp_edn = fib_reader.u32(cslw_offset + 2 + 8 * 4)
-    extract_textbox_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd, ccp_atn, ccp_edn, ccp_txbx)
-  } else {
-    ""
-  }
+  // Batch extract all subdocument texts in one pass over the piece table
+  let (textbox_full, hdr_txbx_full, header_full, footnote_full, endnote_full, comment_full) =
+    extract_all_subdocuments(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd, ccp_atn, ccp_edn, ccp_txbx, ccp_hdr_txbx)
 
   // Try to parse PlcftxbxTxt for individual textbox boundaries
   if textbox_full.length() > 0 && lcb_plcftxbx_txt > 0 && fc_plcftxbx_txt + lcb_plcftxbx_txt <= table_bytes.length() {
@@ -236,23 +240,8 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   }
 
   // Extract header textbox subdocument text
-  let ccp_hdr_txbx = if cslw_offset + 2 + 10 * 4 + 4 <= word_bytes.length() {
-    fib_reader.u32(cslw_offset + 2 + 10 * 4)
-  } else { 0 }
   let fc_plcfhdrtxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 58 * 8)
   let lcb_plcfhdrtxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 58 * 8 + 4)
-
-  // Extract header textbox subdocument text from piece table
-  let hdr_txbx_full = if ccp_hdr_txbx > 0 {
-    let ccp_ftn_h = fib_reader.u32(cslw_offset + 2 + 4 * 4)
-    let ccp_hdd_h = fib_reader.u32(cslw_offset + 2 + 5 * 4)
-    let ccp_atn_h = fib_reader.u32(cslw_offset + 2 + 7 * 4)
-    let ccp_edn_h = fib_reader.u32(cslw_offset + 2 + 8 * 4)
-    let ccp_txbx_h = fib_reader.u32(cslw_offset + 2 + 9 * 4)
-    extract_header_textbox_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn_h, ccp_hdd_h, ccp_atn_h, ccp_edn_h, ccp_txbx_h, ccp_hdr_txbx)
-  } else {
-    ""
-  }
 
   // Parse PlcfHdrtxbxTxt for individual header textbox boundaries
   if hdr_txbx_full.length() > 0 && lcb_plcfhdrtxbx_txt > 0 && fc_plcfhdrtxbx_txt + lcb_plcfhdrtxbx_txt <= table_bytes.length() {
@@ -320,16 +309,9 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   // Extract header/footer subdocument text
   let headers = Array::new()
   let footers = Array::new()
-  let ccp_hdd = if cslw_offset + 2 + 5 * 4 + 4 <= table_bytes.length() {
-    fib_reader.u32(cslw_offset + 2 + 5 * 4)
-  } else { 0 }
 
   if ccp_hdd > 0 {
     // Header document starts after main story + footnote document
-    let ccp_ftn = fib_reader.u32(cslw_offset + 2 + 4 * 4)
-
-    // Extract header document text from piece table
-    let header_full = extract_header_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd)
 
     // Parse PlcfHdd to get story boundaries
     let fc_plcf_hdd = fib_reader.u32(fib_rgfc_lcb_start + 11 * 8)
@@ -387,14 +369,8 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   // Extract footnote subdocument text
   let footnotes = Array::new()
-  let ccp_ftn = if cslw_offset + 2 + 4 * 4 + 4 <= table_bytes.length() {
-    fib_reader.u32(cslw_offset + 2 + 4 * 4)
-  } else { 0 }
 
   if ccp_ftn > 0 {
-    // Extract footnote document text from piece table
-    let footnote_full = extract_footnote_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn)
-
     // Parse PlcffndTxt to get individual footnote boundaries
     let fc_plcffnd_txt = fib_reader.u32(fib_rgfc_lcb_start + 3 * 8)
     let lcb_plcffnd_txt = fib_reader.u32(fib_rgfc_lcb_start + 3 * 8 + 4)
@@ -431,17 +407,8 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   // Extract endnote subdocument text
   let endnotes = Array::new()
-  let ccp_edn = if cslw_offset + 2 + 8 * 4 + 4 <= table_bytes.length() {
-    fib_reader.u32(cslw_offset + 2 + 8 * 4)
-  } else { 0 }
 
   if ccp_edn > 0 {
-    // Extract endnote document text from piece table
-    let ccp_ftn = fib_reader.u32(cslw_offset + 2 + 4 * 4)
-    let ccp_hdd = fib_reader.u32(cslw_offset + 2 + 5 * 4)
-    let ccp_atn = fib_reader.u32(cslw_offset + 2 + 7 * 4)
-    let endnote_full = extract_endnote_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd, ccp_atn, ccp_edn)
-
     // Parse PlcfendTxt to get individual endnote boundaries
     let fc_plcfend_txt = fib_reader.u32(fib_rgfc_lcb_start + 47 * 8)
     let lcb_plcfend_txt = fib_reader.u32(fib_rgfc_lcb_start + 47 * 8 + 4)
@@ -478,14 +445,8 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   // Extract comment (annotation) subdocument text
   let comments = Array::new()
-  let ccp_atn = if cslw_offset + 2 + 7 * 4 + 4 <= table_bytes.length() {
-    fib_reader.u32(cslw_offset + 2 + 7 * 4)
-  } else { 0 }
 
   if ccp_atn > 0 {
-    // Extract comment document text from piece table
-    let comment_full = extract_comment_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd, ccp_atn)
-
     // Parse PlcfandTxt to get individual comment text boundaries
     let fc_plcfand_txt = fib_reader.u32(fib_rgfc_lcb_start + 5 * 8)
     let lcb_plcfand_txt = fib_reader.u32(fib_rgfc_lcb_start + 5 * 8 + 4)
@@ -574,27 +535,6 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   }
 
   // Read CHPX and PAPX runs for formatting
-  let piece_entries = Array::new()
-  {
-    let mut pe = 0
-    while pe < pcd_count {
-      let fc_raw = plc_reader.u32((pcd_count + 1) * 4 + pe * 8 + 2)
-      let compressed = (fc_raw & 0x40000000) != 0
-      let fc = fc_raw & 0x3FFFFFFF
-      let byte_start = if compressed { fc / 2 } else { fc }
-      let cp_len = cps[pe + 1] - cps[pe]
-      let bytes_per_char = if compressed { 1 } else { 2 }
-      let byte_end = byte_start + cp_len * bytes_per_char
-      piece_entries.push(PieceEntry::{
-        cp_start: cps[pe],
-        cp_end: cps[pe + 1],
-        fc_start: byte_start,
-        fc_end: byte_end,
-        compressed,
-      })
-      pe += 1
-    }
-  }
   let chpx_runs = read_chpx_runs_fallback(word_bytes, table_bytes, main_story_end, piece_entries)
   let papx_runs = read_papx_runs_fallback(word_bytes, table_bytes, main_story_end, piece_entries)
 
@@ -643,18 +583,19 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   let mut chpx_cursor = 0
   if papx_runs.length() > 0 {
     // Use PAPX runs as paragraph boundaries (faithful JS approach)
+    let full_len = String::length(clean_full_text)
     let mut ri = 0
     while ri < papx_runs.length() {
       let run = papx_runs[ri]
       let cp_start = run.cp_start
       let mut cp_end = run.cp_end
       // Clamp to document text length
-      if cp_start > String::length(clean_full_text) {
+      if cp_start >= full_len {
         ri += 1
         continue
       }
-      if cp_end > String::length(clean_full_text) {
-        cp_end = String::length(clean_full_text)
+      if cp_end > full_len {
+        cp_end = full_len
       }
       if cp_start >= cp_end {
         ri += 1
@@ -739,22 +680,9 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
         let para_state = papx_result.para_state
         let (segments, new_cursor) = build_char_segments(chpx_runs, para_text, start, i, papx_result.resolved_char_props, fonts, styles, chpx_cursor, style_cache)
         chpx_cursor = new_cursor
-        let runs = process_inline_fields(segments, resolver)
-        let merged_runs = merge_adjacent_runs(runs)
-        let clean_para_text = strip_field_markers(para_text)
-        let clean_para_text = {
-          let len = String::length(clean_para_text)
-          if len > 0 {
-            let last_ch = clean_para_text[len - 1].to_int()
-            if last_ch == 0x0D || last_ch == 0x07 {
-              clean_para_text[0 : len - 1].to_owned()
-            } else {
-              clean_para_text
-            }
-          } else {
-            clean_para_text
-          }
-        }
+      let runs = process_inline_fields(segments, resolver)
+      let merged_runs = merge_adjacent_runs(runs)
+      let clean_para_text = strip_field_markers_and_trim(para_text)
         let terminator_byte = if ch == 0x07 { b'\x07' } else { b'\r' }
         paragraphs.push(ParagraphInfo::{
           cp_start: start,
@@ -800,20 +728,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       let (segments, _) = build_char_segments(chpx_runs, para_text, start, String::length(clean_full_text), papx_result.resolved_char_props, fonts, styles, chpx_cursor, style_cache)
       let runs = process_inline_fields(segments, resolver)
       let merged_runs = merge_adjacent_runs(runs)
-      let clean_para_text = strip_field_markers(para_text)
-      let clean_para_text = {
-        let len = String::length(clean_para_text)
-        if len > 0 {
-          let last_ch = clean_para_text[len - 1].to_int()
-          if last_ch == 0x0D || last_ch == 0x07 {
-            clean_para_text[0 : len - 1].to_owned()
-          } else {
-            clean_para_text
-          }
-        } else {
-          clean_para_text
-        }
-      }
+      let clean_para_text = strip_field_markers_and_trim(para_text)
       paragraphs.push(ParagraphInfo::{
         cp_start: start,
         cp_end: String::length(clean_full_text),

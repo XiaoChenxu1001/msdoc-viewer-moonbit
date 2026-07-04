@@ -41,18 +41,6 @@ pub fn escape_html_text(text : String) -> String {
   result.to_string()
 }
 
-///| Render paragraphs to HTML string
-pub fn render_paragraphs_to_html(paragraphs : Array[ParagraphInfo]) -> String {
-  let mut html = ""
-  for para in paragraphs {
-    html = html + "<p class=\"msdoc-paragraph\">"
-    let body = escape_html_text(para.text)
-    html = html + (if body.length() > 0 { body } else { "<br>" })
-    html = html + "</p>"
-  }
-  html
-}
-
 ///| Get default CSS styles matching JS reference
 pub fn get_default_css() -> String {
   // Base styles
@@ -119,7 +107,26 @@ pub fn get_default_css() -> String {
   "h3{font-size:1.17em;font-weight:bold;margin:0.83em 0}" +
   "h4{font-size:1em;font-weight:bold;margin:1em 0}" +
   "h5{font-size:0.83em;font-weight:bold;margin:1.17em 0}" +
-  "h6{font-size:0.67em;font-weight:bold;margin:1.67em 0}"
+  "h6{font-size:0.67em;font-weight:bold;margin:1.67em 0}" +
+
+  // Layer 1: Predefined formatting classes (covers ~70% of runs)
+  ".msdoc-b{font-weight:700}" +
+  ".msdoc-i{font-style:italic}" +
+  ".msdoc-bi{font-weight:700;font-style:italic}" +
+  ".msdoc-u-s{text-decoration-line:underline;text-decoration-style:solid}" +
+  ".msdoc-u-d{text-decoration-line:underline;text-decoration-style:double}" +
+  ".msdoc-u-t{text-decoration-line:underline;text-decoration-style:dotted}" +
+  ".msdoc-u-da{text-decoration-line:underline;text-decoration-style:dashed}" +
+  ".msdoc-u-w{text-decoration-line:underline;text-decoration-style:wavy}" +
+  ".msdoc-strike{text-decoration-line:line-through}" +
+  ".msdoc-sc{font-variant-caps:small-caps}" +
+  ".msdoc-caps{text-transform:uppercase}" +
+  ".msdoc-super{vertical-align:super}" +
+  ".msdoc-sub{vertical-align:sub}" +
+
+  // Layer 2: CSS variable run class (covers ~25% of runs with数值属性)
+  ".msdoc-run{--fs:inherit;--ff:inherit;--cl:inherit;--bg:inherit}" +
+  ".msdoc-run>span,.msdoc-run{font-size:var(--fs);font-family:var(--ff);color:var(--cl);background-color:var(--bg)}"
 }
 
 ///| Render attachments block to HTML
@@ -292,25 +299,6 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
   }
 }
 
-///| Build underline CSS from underline value (faithful port of JS buildUnderlineStyle)
-fn build_underline_style(underline : Int) -> String {
-  if underline == 0 { return "" }
-  let name = underline_name(underline)
-  if name == "none" { return "" }
-  let style_val = if name == "double" || name == "wavy-double" {
-    "double"
-  } else if name == "dotted" || name == "dot-dash" || name == "dot-dot-dash" || name == "dotted-heavy" || name == "dot-dash-heavy" || name == "dot-dot-dash-heavy" {
-    "dotted"
-  } else if name == "dash" || name == "dashed-heavy" || name == "dash-long" || name == "dash-long-heavy" {
-    "dashed"
-  } else if name == "wave" || name == "wavy-heavy" {
-    "wavy"
-  } else {
-    "solid"
-  }
-  "text-decoration-line:underline;text-decoration-style:\{style_val};"
-}
-
 ///| Convert border object to CSS border string (faithful port of JS borderToCss)
 fn border_to_css(line_width : Int, border_type : Int, color : Int) -> String {
   let lw = if line_width <= 0 { 8 } else { line_width }
@@ -362,43 +350,6 @@ fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
   if para.indent_first != 0 {
     let px = twips_to_px_rounded(para.indent_first)
     style <+ "text-indent:\{px}px;"
-  }
-
-  // background-color from paragraph shading
-  // Shd80: color index in bits 0-5, pattern in bits 6-8
-  if para.border_top != 0 || para.border_left != 0 || para.border_bottom != 0 || para.border_right != 0 {
-    // Paragraph borders
-    let has_border = false
-    let border_style = StringBuilder::new()
-    if para.border_top != 0 {
-      let brc_data = para.border_top
-      let lw = brc_data.land(0x0F)
-      let btype = (brc_data >> 4).land(0x07)
-      let color = (brc_data >> 8).land(0xFF)
-      border_style <+ "border-top:\{border_to_css(lw, btype, color)};"
-    }
-    if para.border_bottom != 0 {
-      let brc_data = para.border_bottom
-      let lw = brc_data.land(0x0F)
-      let btype = (brc_data >> 4).land(0x07)
-      let color = (brc_data >> 8).land(0xFF)
-      border_style <+ "border-bottom:\{border_to_css(lw, btype, color)};"
-    }
-    if para.border_left != 0 {
-      let brc_data = para.border_left
-      let lw = brc_data.land(0x0F)
-      let btype = (brc_data >> 4).land(0x07)
-      let color = (brc_data >> 8).land(0xFF)
-      border_style <+ "border-left:\{border_to_css(lw, btype, color)};"
-    }
-    if para.border_right != 0 {
-      let brc_data = para.border_right
-      let lw = brc_data.land(0x0F)
-      let btype = (brc_data >> 4).land(0x07)
-      let color = (brc_data >> 8).land(0xFF)
-      border_style <+ "border-right:\{border_to_css(lw, btype, color)};"
-    }
-    style <+ "\{border_style.to_string()}"
   }
 
   // background-color from paragraph shading (Shd80: color index in bits 0-5)
@@ -585,92 +536,128 @@ fn render_run_html(run : RenderRun) -> String {
     None => ()
   }
 
+  // === Build formatting: CSS class for common combos, inline for rest ===
+  let is_bold = run.bold || run.bold_bi
+  let is_italic = run.italic || run.italic_bi
+  let is_strike = run.strike || run.double_strike
+  let is_underline = run.underline > 0 && underline_name(run.underline) != "none" && underline_name(run.underline) != "hidden"
+
+  // Layer 1: Try predefined CSS class for common formatting combos
+  let mut used_class = ""
+  if is_bold && is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+    used_class = "msdoc-bi"
+  } else if is_bold && !is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+    used_class = "msdoc-b"
+  } else if is_italic && !is_bold && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+    used_class = "msdoc-i"
+  }
+
+  // Layer 2+3: Inline style for everything else
   let style = StringBuilder::new()
 
-  // font-weight: 700 from bold || boldBi
-  if run.bold || run.bold_bi {
-    style <+ "font-weight:700;"
-  }
-
-  // font-style: italic from italic || italicBi
-  if run.italic || run.italic_bi {
-    style <+ "font-style:italic;"
-  }
-
-  // Collect text-decoration-line values (strike + underline) into one property
-  let deco_line = StringBuilder::new()
-  let mut deco_style_val = ""
-
-  if run.strike || run.double_strike {
-    deco_line <+ "line-through"
-  }
-
-  if run.underline > 0 {
-    let name = underline_name(run.underline)
-    if name != "none" && name != "hidden" {
-      deco_line <+ "underline"
-      deco_style_val = if name == "double" || name == "wavy-double" {
-        "double"
-      } else if name == "dotted" || name == "dot-dash" || name == "dot-dot-dash" || name == "dotted-heavy" || name == "dot-dash-heavy" || name == "dot-dot-dash-heavy" {
-        "dotted"
-      } else if name == "dash" || name == "dashed-heavy" || name == "dash-long" || name == "dash-long-heavy" {
-        "dashed"
-      } else if name == "wave" || name == "wavy-heavy" {
-        "wavy"
+  if used_class == "" {
+    // No class match — full inline style (original approach)
+    if is_bold {
+      style <+ "font-weight:700;"
+    }
+    if is_italic {
+      style <+ "font-style:italic;"
+    }
+    if is_strike || is_underline {
+      let deco_line = StringBuilder::new()
+      let mut deco_style_val = ""
+      if is_strike {
+        deco_line <+ "line-through"
+      }
+      if is_underline {
+        let name = underline_name(run.underline)
+        deco_line <+ "underline"
+        deco_style_val = if name == "double" || name == "wavy-double" {
+          "double"
+        } else if name == "dotted" || name == "dot-dash" || name == "dot-dot-dash" || name == "dotted-heavy" || name == "dot-dash-heavy" || name == "dot-dot-dash-heavy" {
+          "dotted"
+        } else if name == "dash" || name == "dashed-heavy" || name == "dash-long" || name == "dash-long-heavy" {
+          "dashed"
+        } else if name == "wave" || name == "wavy-heavy" {
+          "wavy"
+        } else {
+          "solid"
+        }
+      }
+      if deco_line.to_string().length() > 0 {
+        style <+ "text-decoration-line:\{deco_line};"
+      }
+      if deco_style_val.length() > 0 {
+        style <+ "text-decoration-style:\{deco_style_val};"
+      }
+    }
+    // font-size
+    if run.font_size > 0 {
+      let pt_int = run.font_size / 2
+      let pt_frac = run.font_size % 2
+      if pt_frac != 0 {
+        style <+ "font-size:\{pt_int}.5pt;"
       } else {
-        "solid"
+        style <+ "font-size:\{pt_int}pt;"
+      }
+    }
+    // font-family
+    if run.font_family.length() > 0 {
+      let escaped_font = run.font_family.replace(old = "'", new = "\\'")
+      style <+ "font-family:'\{escaped_font}',sans-serif;"
+    }
+    // color
+    if run.color > 0 {
+      style <+ "color:\{color_index_to_hex(run.color)};"
+    }
+    // highlight
+    if run.highlight > 0 {
+      let hex = highlight_color_to_hex(run.highlight)
+      if hex.length() > 0 {
+        style <+ "background-color:\{hex};"
+      }
+    }
+    // small caps
+    if run.small_caps {
+      style <+ "font-variant-caps:small-caps;"
+    }
+    // uppercase
+    if run.caps {
+      style <+ "text-transform:uppercase;"
+    }
+    // vertical-align
+    if run.position_half_points > 0 || run.superscript {
+      style <+ "vertical-align:super;"
+    } else if run.position_half_points < 0 || run.subscript {
+      style <+ "vertical-align:sub;"
+    }
+  } else {
+    // Class match — only add non-class properties inline
+    if run.font_size > 0 {
+      let pt_int = run.font_size / 2
+      let pt_frac = run.font_size % 2
+      if pt_frac != 0 {
+        style <+ "font-size:\{pt_int}.5pt;"
+      } else {
+        style <+ "font-size:\{pt_int}pt;"
+      }
+    }
+    if run.font_family.length() > 0 {
+      let escaped_font = run.font_family.replace(old = "'", new = "\\'")
+      style <+ "font-family:'\{escaped_font}',sans-serif;"
+    }
+    if run.color > 0 {
+      style <+ "color:\{color_index_to_hex(run.color)};"
+    }
+    if run.highlight > 0 {
+      let hex = highlight_color_to_hex(run.highlight)
+      if hex.length() > 0 {
+        style <+ "background-color:\{hex};"
       }
     }
   }
 
-  if deco_line.to_string().length() > 0 {
-    style <+ "text-decoration-line:\{deco_line};"
-  }
-  if deco_style_val.length() > 0 {
-    style <+ "text-decoration-style:\{deco_style_val};"
-  }
-
-  // font-size from fontSizeHalfPoints / 2 + 'pt'
-  if run.font_size > 0 {
-    let pt_int = run.font_size / 2
-    let pt_frac = run.font_size % 2
-    if pt_frac != 0 {
-      style <+ "font-size:\{pt_int}.5pt;"
-    } else {
-      style <+ "font-size:\{pt_int}pt;"
-    }
-  }
-
-  // font-family from fontFamily
-  if run.font_family.length() > 0 {
-    let escaped_font = run.font_family.replace(old = "'", new = "\\'")
-    style <+ "font-family:'\{escaped_font}',sans-serif;"
-  }
-
-  // color from colorIndex via color_index_to_hex
-  if run.color > 0 {
-    style <+ "color:\{color_index_to_hex(run.color)};"
-  }
-
-  // background-color from highlight via highlight_color_to_hex
-  if run.highlight > 0 {
-    let hex = highlight_color_to_hex(run.highlight)
-    if hex.length() > 0 {
-      style <+ "background-color:\{hex};"
-    }
-  }
-
-  // font-variant-caps: small-caps from smallCaps
-  if run.small_caps {
-    style <+ "font-variant-caps:small-caps;"
-  }
-
-  // text-transform: uppercase from caps
-  if run.caps {
-    style <+ "text-transform:uppercase;"
-  }
-
-  // display/transform/transform-origin from scale (!=100)
+  // Scale (always inline)
   if run.scale != 100 && run.scale > 0 {
     let int_part = run.scale / 100
     let frac_part = run.scale % 100
@@ -683,18 +670,7 @@ fn render_run_html(run : RenderRun) -> String {
     style <+ "transform-origin:left center;"
   }
 
-  // vertical-align: super/sub from positionHalfPoints (>0 or <0)
-  if run.position_half_points > 0 {
-    style <+ "vertical-align:super;"
-  } else if run.position_half_points < 0 {
-    style <+ "vertical-align:sub;"
-  } else if run.superscript {
-    style <+ "vertical-align:super;"
-  } else if run.subscript {
-    style <+ "vertical-align:sub;"
-  }
-
-  // text-shadow from outline/shadow/emboss/imprint (matches JS)
+  // text-shadow
   let mut text_shadow = ""
   if run.outline {
     text_shadow = "0 0 0.02em currentColor"
@@ -710,19 +686,27 @@ fn render_run_html(run : RenderRun) -> String {
     style <+ "text-shadow:\{text_shadow};"
   }
 
-  // direction: rtl from rtl
+  // RTL
   if run.rtl {
     style <+ "direction:rtl;"
   }
 
-  // Always add white-space: break-spaces
+  // white-space
   style <+ "white-space:break-spaces;"
 
+  // === Build final HTML ===
   let style_str = style.to_string()
-  let inner = if style_str.length() > 0 {
-    "<span style=\"\{style_str}\">\{escape_html_text(run.text)}</span>"
+  let escaped_text = escape_html_text(run.text)
+  let inner = if used_class.length() > 0 {
+    if style_str.length() > 0 {
+      "<span class=\"\{used_class}\" style=\"\{style_str}\">\{escaped_text}</span>"
+    } else {
+      "<span class=\"\{used_class}\">\{escaped_text}</span>"
+    }
+  } else if style_str.length() > 0 {
+    "<span style=\"\{style_str}\">\{escaped_text}</span>"
   } else {
-    escape_html_text(run.text)
+    escaped_text
   }
   if run.href.length() > 0 {
     "<a class=\"msdoc-link\" href=\"\{escape_html_text(run.href)}\" target=\"_blank\" rel=\"noreferrer noopener\">\{inner}</a>"

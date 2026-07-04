@@ -1,4 +1,43 @@
-﻿///| CFB/OLE container parser for MS-DOC files
+///| CFB/OLE container parser for MS-DOC files
+
+///| Convert ASCII uppercase to lowercase for case-insensitive map keys
+fn ascii_to_lower(s : String) -> String {
+  let len = String::length(s)
+  let mut has_upper = false
+  let mut i = 0
+  while i < len {
+    let ch = s[i].to_int()
+    if ch >= 0x41 && ch <= 0x5A {
+      has_upper = true
+      break
+    }
+    i += 1
+  }
+  if !has_upper {
+    return s
+  }
+  let sb = StringBuilder::new()
+  i = 0
+  while i < len {
+    let ch = s[i].to_int()
+    if ch >= 0x41 && ch <= 0x5A {
+      match (ch + 0x20).to_char() {
+        Some(c) => sb <+ "\{c}"
+        None => match s[i].to_char() {
+          Some(c) => sb <+ "\{c}"
+          None => ignore(ch)
+        }
+      }
+    } else {
+      match s[i].to_char() {
+        Some(c) => sb <+ "\{c}"
+        None => ignore(ch)
+      }
+    }
+    i += 1
+  }
+  sb.to_string()
+}
 
 ///| CFB directory entry
 pub struct CFBEntry {
@@ -26,6 +65,7 @@ pub struct CFBContainer {
   fat : Array[Int]
   mini_fat : Array[Int]
   root_stream_bytes : FixedArray[Byte]
+  stream_map : Map[String, Int]
 }
 
 ///| Read a sector at absolute position
@@ -274,6 +314,18 @@ pub fn parse_cfb(
     FixedArray::make(0, b'\x00')
   }
 
+  // Build stream name → entry index map for O(1) lookups
+  // Use lowercase ASCII for case-insensitive key matching
+  let stream_map = Map([], capacity=entries.length())
+  let mut entry_idx = 0
+  for entry in entries {
+    if entry.object_type == 2 || entry.object_type == 5 {
+      let key = ascii_to_lower(entry.name)
+      stream_map.set(key, entry_idx)
+    }
+    entry_idx += 1
+  }
+
   CFBContainer::{
     bytes,
     major_version,
@@ -286,6 +338,7 @@ pub fn parse_cfb(
     fat,
     mini_fat,
     root_stream_bytes,
+    stream_map,
   }
 }
 
@@ -474,14 +527,16 @@ pub fn cfb_find_by_name(
   None
 }
 
-///| Get stream bytes by name (exact match first, then fallback to substring)
+///| Get stream bytes by name (exact match via map, then fallback to substring)
 pub fn cfb_get_stream(
   container : CFBContainer,
   name : String,
 ) -> Option[FixedArray[Byte]] {
-  // First try exact case-insensitive match
-  for entry in container.entries {
-    if entry.name.equal_ignore_ascii_case(name) && (entry.object_type == 2 || entry.object_type == 5) {
+  // Fast path: O(1) map lookup for exact case-insensitive match
+  let lower_name = ascii_to_lower(name)
+  match container.stream_map.get(lower_name) {
+    Some(entry_idx) => {
+      let entry = container.entries[entry_idx]
       if entry.object_type == 5 {
         return Some(container.root_stream_bytes)
       }
@@ -496,8 +551,9 @@ pub fn cfb_get_stream(
         container.warnings,
       ))
     }
+    None => ()
   }
-  // Fallback to substring match
+  // Slow path: substring match (for streams like "CONTENTS" inside ObjectPool)
   for entry in container.entries {
     if entry.name.contains(name) && (entry.object_type == 2 || entry.object_type == 5) {
       if entry.object_type == 5 {

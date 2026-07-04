@@ -27,108 +27,47 @@ struct FieldRange {
   href : String
 }
 
-///| Precompute hyperlink field ranges from paragraph text using stack-based parser
-fn find_hyperlink_field_ranges(para_text : String) -> Array[FieldRange] {
-  let ranges : Array[FieldRange] = Array::new()
-  let field_stack : Array[FieldCtx] = Array::new()
-  let text_len = String::length(para_text)
-
+///| Strip field markers and trim trailing \r/\u{0007} in a single pass
+fn strip_field_markers_and_trim(text : String) -> String {
+  let len = String::length(text)
+  // Fast path: no markers and no trailing terminator
+  let mut has_markers = false
+  let mut has_trailing = false
   let mut i = 0
-  while i < text_len {
-    let ch = para_text[i].to_int()
-
-    if ch == 0x13 {
-      field_stack.push(FieldCtx::{
-        instruction: StringBuilder::new(),
-        is_hyperlink: false,
-        href: "",
-        reading_instruction: true,
-        display_start: -1,
-        last_emitted: -1,
-      })
-      i += 1
-      continue
+  while i < len {
+    let ch = text[i].to_int()
+    if ch == 0x13 || ch == 0x14 || ch == 0x15 {
+      has_markers = true
     }
-
-    if ch == 0x14 && field_stack.length() > 0 {
-      let top_idx = field_stack.length() - 1
-      let top = field_stack[top_idx]
-      let instr_str = top.instruction.to_string()
-      let instr_result = decode_field_instruction(instr_str)
-      let is_hl = instr_result.instr_type == "hyperlink" && instr_result.href.length() > 0
-      let new_href = if is_hl { instr_result.href } else { top.href }
-      let new_is_hl = if is_hl { true } else { top.is_hyperlink }
-      field_stack[top_idx] = FieldCtx::{
-        instruction: top.instruction,
-        is_hyperlink: new_is_hl,
-        href: new_href,
-        reading_instruction: false,
-        display_start: i + 1,
-        last_emitted: i + 1,
-      }
-      i += 1
-      continue
-    }
-
-    if ch == 0x15 && field_stack.length() > 0 {
-      let top_idx = field_stack.length() - 1
-      let top = field_stack[top_idx]
-      let effective_href = if top.reading_instruction {
-        let instr_str = top.instruction.to_string()
-        let instr_result = decode_field_instruction(instr_str)
-        if instr_result.instr_type == "hyperlink" && instr_result.href.length() > 0 { instr_result.href } else { top.href }
-      } else {
-        top.href
-      }
-      let effective_is_hl = if top.reading_instruction {
-        let instr_str = top.instruction.to_string()
-        let instr_result = decode_field_instruction(instr_str)
-        if instr_result.instr_type == "hyperlink" && instr_result.href.length() > 0 { true } else { top.is_hyperlink }
-      } else {
-        top.is_hyperlink
-      }
-      let field_display_start = top.display_start
-      let field_last_emitted = top.last_emitted
-      ignore(field_stack.pop())
-
-      if effective_is_hl && effective_href.length() > 0 {
-        let emit_from = if field_last_emitted >= 0 { field_last_emitted } else { field_display_start }
-        if emit_from >= 0 && emit_from < i {
-          ranges.push(FieldRange::{ start: emit_from, end: i, href: effective_href })
-        }
-      }
-
-      i += 1
-      continue
-    }
-
-    if field_stack.length() > 0 && field_stack[field_stack.length() - 1].reading_instruction {
-      let top_idx2 = field_stack.length() - 1
-      let top2 = field_stack[top_idx2]
-      let new_instruction = match ch.to_char() {
-        Some(c) => {
-          let sb = top2.instruction
-          sb <+ "\{c}"
-          sb
-        }
-        None => top2.instruction
-      }
-      field_stack[top_idx2] = FieldCtx::{
-        instruction: new_instruction,
-        is_hyperlink: top2.is_hyperlink,
-        href: top2.href,
-        reading_instruction: top2.reading_instruction,
-        display_start: top2.display_start,
-        last_emitted: top2.last_emitted,
-      }
-      i += 1
-      continue
-    }
-
     i += 1
   }
-
-  ranges
+  if len > 0 {
+    let last_ch = text[len - 1].to_int()
+    has_trailing = last_ch == 0x0D || last_ch == 0x07
+  }
+  if !has_markers && !has_trailing {
+    return text
+  }
+  // Determine effective end (skip trailing terminator)
+  let effective_end = if has_trailing { len - 1 } else { len }
+  if !has_markers {
+    // Only need to trim — just slice
+    return text[0 : effective_end].to_owned()
+  }
+  // Slow path: strip markers, skip trailing terminator
+  let sb = StringBuilder::new()
+  i = 0
+  while i < effective_end {
+    let ch = text[i].to_int()
+    if ch != 0x13 && ch != 0x14 && ch != 0x15 {
+      match text[i].to_char() {
+        Some(c) => sb <+ "\{c}"
+        None => ignore(ch)
+      }
+    }
+    i += 1
+  }
+  sb.to_string()
 }
 
 ///| Strip field marker characters (0x13/0x14/0x15) from text
@@ -162,18 +101,6 @@ fn strip_field_markers(text : String) -> String {
     i += 1
   }
   sb.to_string()
-}
-
-///| Offset field ranges from local paragraph positions to document-level CP positions
-fn offset_field_ranges(ranges : Array[FieldRange], offset : Int) -> Array[FieldRange] {
-  let result : Array[FieldRange] = Array::new()
-  let mut i = 0
-  while i < ranges.length() {
-    let r = ranges[i]
-    result.push(FieldRange::{ start: r.start + offset, end: r.end + offset, href: r.href })
-    i += 1
-  }
-  result
 }
 
 ///| Case-insensitive prefix match starting at offset

@@ -1,4 +1,4 @@
-﻿///| 工具函数模块
+///| 工具函数模块
 
 ///| 限制值在范围内
 pub fn clamp(value : Int, min : Int, max : Int) -> Int {
@@ -7,53 +7,9 @@ pub fn clamp(value : Int, min : Int, max : Int) -> Int {
   else { value }
 }
 
-///| HTML 转义
-pub fn escape_html(text : String) -> String {
-  let result = StringBuilder::new()
-  let mut i = 0
-  while i < String::length(text) {
-    let ch = text[i]
-    match ch.to_char() {
-      Some(c) => {
-        match c {
-          '&' => result <+ "&amp;"
-          '<' => result <+ "&lt;"
-          '>' => result <+ "&gt;"
-          '"' => result <+ "&quot;"
-          '\'' => result <+ "&#39;"
-          _ => {
-            let s = c.to_string()
-            result <+ "\{s}"
-          }
-        }
-      }
-      None => ignore(ch)
-    }
-    i += 1
-  }
-  result.to_string()
-}
-
 ///| 对齐到偶数
 pub fn align_even(value : Int) -> Int {
   if value % 2 == 0 { value } else { value + 1 }
-}
-
-///| 字节转十六进制字符串
-pub fn bytes_to_hex(bytes : FixedArray[Byte], max : Int) -> String {
-  let result = StringBuilder::new()
-  let len = if max < bytes.length() { max } else { bytes.length() }
-  let mut i = 0
-  while i < len {
-    let b = bytes[i].to_int()
-    let hex = if b < 16 { "0\{b.to_string()}" } else { b.to_string() }
-    if i > 0 {
-      result <+ " "
-    }
-    result <+ "\{hex}"
-    i += 1
-  }
-  result.to_string()
 }
 
 ///| 字节转 Base64
@@ -142,59 +98,4 @@ pub fn twips_to_px_rounded(twips : Int) -> Int {
 ///| Points 转像素
 pub fn points_to_px(points : Int, px_per_inch : Int) -> Option[Int] {
   if points < 0 { None } else { Some((points * px_per_inch) / 72) }
-}
-
-///| 清理文本控制字符
-pub fn clean_text_control_chars(text : String) -> String {
-  let result = StringBuilder::new()
-  let mut i = 0
-  while i < String::length(text) {
-    let ch = text[i]
-    if ch == 0x0B || ch == 0x0C {
-      result <+ "\n"
-    } else {
-      match ch.to_char() {
-        Some(c) => {
-          let s = c.to_string()
-          result <+ "\{s}"
-        }
-        None => ignore(ch)
-      }
-    }
-    i += 1
-  }
-  result.to_string()
-}
-
-///| Twips 转像素 (浮点数版本)
-pub fn twips_to_px_float(twips : Float, px_per_inch : Float) -> Float {
-  (twips / 1440.0) * px_per_inch
-}
-
-///| Points 转像素 (浮点数版本)
-pub fn points_to_px_float(points : Float, px_per_inch : Float) -> Float {
-  (points / 72.0) * px_per_inch
-}
-
-///| Group consecutive items by a predicate
-/// Returns an array of arrays, where each sub-array contains consecutive items
-/// that satisfy the belongs_together predicate
-pub fn[T] group_consecutive(items : Array[T], belongs_together : (T, T) -> Bool) -> Array[Array[T]] {
-  let groups : Array[Array[T]] = Array::new()
-  if items.length() == 0 {
-    return groups
-  }
-  let mut current_group : Array[T] = [items[0]]
-  let mut i = 1
-  while i < items.length() {
-    if belongs_together(items[i - 1], items[i]) {
-      current_group.push(items[i])
-    } else {
-      groups.push(current_group)
-      current_group = [items[i]]
-    }
-    i += 1
-  }
-  groups.push(current_group)
-  groups
 }

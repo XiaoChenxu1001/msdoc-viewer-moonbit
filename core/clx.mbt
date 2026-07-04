@@ -1,4 +1,4 @@
-﻿///| CLX / Piece Table parser for MS-DOC files
+///| CLX / Piece Table parser for MS-DOC files
 
 ///| Piece in the piece table
 pub struct Piece {
@@ -147,38 +147,6 @@ fn parse_plc_pcd(bytes : FixedArray[Byte]) -> PieceTable raise {
   PieceTable::{ cps, pieces }
 }
 
-///| Parse CLX structure
-pub fn parse_clx(
-  table_bytes : FixedArray[Byte],
-  fc_clx : Int,
-  lcb_clx : Int,
-) -> CLX raise {
-  if fc_clx < 0 || lcb_clx <= 0 || fc_clx + lcb_clx > table_bytes.length() {
-    raise CfbError("FIB does not point to a valid CLX structure")
-  }
-  let clx_bytes = FixedArray::makei(lcb_clx, fn(i) { table_bytes[fc_clx + i] })
-  let reader = BinaryReader::make(clx_bytes)
-
-  // Find Pcdt marker
-  let mut offset = 0
-  while offset < clx_bytes.length() && reader.u8(offset) == 0x01 {
-    let cb_grpprl = reader.u16(offset + 1)
-    offset += 3 + cb_grpprl
-  }
-
-  if offset >= clx_bytes.length() || reader.u8(offset) != 0x02 {
-    raise CfbError("CLX does not contain a Pcdt marker")
-  }
-  let lcb = reader.u32(offset + 1)
-  let plc_pcd_bytes = FixedArray::makei(lcb, fn(i) { clx_bytes[offset + 5 + i] })
-  let piece_table = parse_plc_pcd(plc_pcd_bytes)
-
-  CLX::{
-    pcdt_lcb: lcb,
-    piece_table,
-  }
-}
-
 ///| Extract text from a piece (zero-copy via view)
 pub fn extract_piece_text(
   word_bytes : FixedArray[Byte],
@@ -190,70 +158,6 @@ pub fn extract_piece_text(
   } else {
     decode_unicode_view(view)
   }
-}
-
-///| Build piece text cache
-pub fn build_piece_text_cache(
-  word_bytes : FixedArray[Byte],
-  clx : CLX,
-) -> Array[String] {
-  let result = Array::new()
-  for piece in clx.piece_table.pieces {
-    result.push(extract_piece_text(word_bytes, piece))
-  }
-  result
-}
-
-///| Get text by character position range
-pub fn get_text_by_cp(
-  clx : CLX,
-  piece_texts : Array[String],
-  cp_start : Int,
-  cp_end : Int,
-) -> String {
-  if cp_end <= cp_start {
-    return ""
-  }
-  let result = StringBuilder::new()
-  for i in 0..<clx.piece_table.pieces.length() {
-    let piece = clx.piece_table.pieces[i]
-    if piece.cp_end <= cp_start {
-      continue
-    }
-    if piece.cp_start >= cp_end {
-      break
-    }
-    let local_start = (if cp_start > piece.cp_start { cp_start } else { piece.cp_start }) - piece.cp_start
-    let local_end = (if cp_end < piece.cp_end { cp_end } else { piece.cp_end }) - piece.cp_start
-    if i < piece_texts.length() {
-      let text = piece_texts[i]
-      if local_start < text.length() && local_end <= text.length() {
-        let s = text[local_start : local_end].to_owned()
-        result <+ "\{s}"
-      }
-    }
-  }
-  result.to_string()
-}
-
-///| Split document text into paragraph ranges
-pub fn split_paragraph_ranges(document_text : String) -> Array[(Int, Int, String)] {
-  let ranges = Array::new()
-  let mut start = 0
-  let mut i = 0
-  while i < String::length(document_text) {
-    let ch = document_text[i]
-    if ch == 0x0D || ch == 0x07 {
-      let term = if ch == 0x0D { "\r" } else { "\u{0007}" }
-      ranges.push((start, i + 1, term))
-      start = i + 1
-    }
-    i += 1
-  }
-  if start < String::length(document_text) {
-    ranges.push((start, String::length(document_text), ""))
-  }
-  ranges
 }
 
 

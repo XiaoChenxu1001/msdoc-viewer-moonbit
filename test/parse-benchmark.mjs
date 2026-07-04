@@ -1,4 +1,4 @@
-﻿/**
+/**
  * parse-benchmark.mjs — 解析器性能基准测试
  * 
  * 用法:
@@ -40,11 +40,13 @@ for (let i = 0; i < 5; i++) {
 
 // Benchmark: render (includes parse)
 const renderTimes = [];
+let lastRendered = null;
 for (let i = 0; i < 5; i++) {
   const t0 = performance.now();
   const rendered = unwrap(render_ms_doc(data));
   const elapsed = performance.now() - t0;
   renderTimes.push(elapsed);
+  lastRendered = rendered;
 }
 
 // Get final parse result for stats
@@ -90,3 +92,12 @@ console.log('');
 const totalRuns = parsed.paragraphs.reduce((sum, p) => sum + p.runs.length, 0);
 console.log(`总 Run 数: ${totalRuns.toLocaleString()}`);
 console.log(`平均每段 Run 数: ${(totalRuns / Math.max(parsed.paragraphs.length, 1)).toFixed(1)}`);
+
+// HTML output size
+if (lastRendered) {
+  console.log('');
+  console.log('=== HTML 输出大小 ===');
+  console.log(`HTML: ${(lastRendered.html.length / 1024).toFixed(1)} KB (${lastRendered.html.length.toLocaleString()} chars)`);
+  console.log(`CSS: ${(lastRendered.css.length / 1024).toFixed(1)} KB (${lastRendered.css.length.toLocaleString()} chars)`);
+  console.log(`总计: ${((lastRendered.html.length + lastRendered.css.length) / 1024).toFixed(1)} KB`);
+}

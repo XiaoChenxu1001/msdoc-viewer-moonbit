@@ -370,13 +370,6 @@ pub fn para_props_from_decoded(decoded : Array[DecodedProperty]) -> ParaState {
   }
 }
 
-///| Convert table properties to state from raw bytes
-pub fn table_props_to_state(props : Array[Byte]) -> TableState {
-  let view = props.view()
-  let decoded = decode_grpprl(view)
-  table_props_from_decoded_impl(decoded, props)
-}
-
 ///| Convert decoded table properties to state with style inheritance support
 pub fn table_props_from_decoded(decoded : Array[DecodedProperty]) -> TableState {
   table_props_from_decoded_impl(decoded, [])
@@ -471,17 +464,6 @@ fn table_props_from_decoded_impl(decoded : Array[DecodedProperty], raw_bytes : A
     operations: decoded,
     table_shading,
     cell_padding: [cell_padding_top, cell_padding_left, cell_padding_bottom, cell_padding_right],
-  }
-}
-
-///| Get table depth from paragraph state
-pub fn get_table_depth(para_state : ParaState) -> Int {
-  if para_state.in_table {
-    let dtap_val = if para_state.dtap > 0 { para_state.dtap } else { 1 }
-    let inner = if para_state.itap > dtap_val { para_state.itap } else { dtap_val }
-    if inner > 1 { inner } else { 1 }
-  } else {
-    0
   }
 }
 
@@ -901,34 +883,5 @@ pub fn highlight_color_to_hex(index : Int) -> String {
     15 => "#808080"
     16 => "#C0C0C0"
     _ => ""
-  }
-}
-
-///| Underline CSS style
-pub fn underline_css_style(value : Int) -> String {
-  match value {
-    0 => ""
-    1 => "underline"
-    2 => "underline"
-    3 => "underline"
-    4 => "underline"
-    5 => ""
-    6 => "underline"
-    7 => "underline"
-    9 => "underline"
-    10 => "underline"
-    11 => "underline"
-    _ => "underline"
-  }
-}
-
-///| Underline CSS style value
-pub fn underline_css_style_value(value : Int) -> String {
-  match value {
-    3 => "double"
-    4 => "dotted"
-    7 => "dashed"
-    11 => "wavy"
-    _ => "solid"
   }
 }
