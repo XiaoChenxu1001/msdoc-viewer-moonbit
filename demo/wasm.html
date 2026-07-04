@@ -84,15 +84,20 @@
 
     // Read a MoonBit string from linear memory (UTF-16 encoded)
     function readString(ptr) {
-      if (ptr <= 0) return '';
+      if (ptr <= 0) {
+        console.log('[WASM] readString: null pointer', ptr);
+        return '';
+      }
       const dv = new DataView(memory.buffer);
       const header = dv.getInt32(ptr - 4, true);
       const len = header & 0x0FFFFFFF;
+      console.log('[WASM] readString: ptr=', ptr, 'header=', header, 'len=', len);
       if (len <= 0 || len > 10000000) return '';
       let str = '';
-      for (let i = 0; i < len; i++) {
+      for (let i = 0; i < Math.min(len, 50); i++) {
         str += String.fromCharCode(dv.getUint16(ptr + i * 2, true));
       }
+      if (len > 50) str += '...';
       return str;
     }
 
@@ -128,21 +133,41 @@
         info.style.display = 'none';
         viewer.innerHTML = '';
 
+        console.log('[WASM] Starting file load:', file.name, file.size, 'bytes');
+
         if (!instance) {
           document.getElementById('status').textContent = 'Loading WASM...';
+          console.log('[WASM] Initializing WASM module...');
           await initWasm();
+          console.log('[WASM] WASM initialized, memory size:', memory.buffer.byteLength);
         }
 
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
+        console.log('[WASM] File loaded, data length:', data.length);
 
         const t0 = performance.now();
+        console.log('[WASM] Allocating memory...');
         const inputPtr = allocBytes(data);
+        console.log('[WASM] Allocated at ptr:', inputPtr, 'memory size:', memory.buffer.byteLength);
+
+        console.log('[WASM] Calling render_ms_doc...');
         const [tag, resultPtr] = instance.render_ms_doc(inputPtr);
         const elapsed = performance.now() - t0;
+        console.log('[WASM] render_ms_doc returned, tag:', tag, 'resultPtr:', resultPtr);
 
         if (tag === 1) {
+          console.log('[WASM] Success! Reading result at ptr:', resultPtr);
+          // Debug: read raw memory around resultPtr
+          const dv = new DataView(memory.buffer);
+          console.log('[WASM] Raw memory at resultPtr:');
+          for (let i = 0; i < 20; i++) {
+            const val = dv.getInt32(resultPtr + i * 4, true);
+            console.log('  offset', i * 4, ':', val);
+          }
           const result = readRenderResult(resultPtr);
+          console.log('[WASM] HTML length:', result.html.length, 'CSS length:', result.css.length);
+          console.log('[WASM] HTML first 100:', result.html.substring(0, 100));
           info.style.display = 'block';
           info.innerHTML =
             '<strong>WASM Result</strong><br>' +
@@ -153,11 +178,14 @@
           viewer.innerHTML = '<style>' + result.css + '</style>' + result.html;
 
           // Extract real images and update DOM
+          console.log('[WASM] Extracting images...');
           const [tag2, jsonPtr] = instance.extract_all_images_sync(inputPtr);
+          console.log('[WASM] Image extraction returned, tag:', tag2);
           const statusEl = document.getElementById('imageStatus');
           if (tag2 === 1) {
             const imagesJson = readString(jsonPtr);
             const images = JSON.parse(imagesJson);
+            console.log('[WASM] Images extracted:', images.length);
             const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
             for (const img of images) {
               if (img.index < placeholderEls.length) {
@@ -177,13 +205,14 @@
           }
         } else {
           const errStr = readString(resultPtr);
+          console.log('[WASM] Error tag returned:', errStr);
           throw new Error(errStr || 'WASM parse returned error tag');
         }
       } catch (err) {
+        console.error('[WASM] Error:', err.message, err.stack);
         error.style.display = 'block';
         error.textContent = 'Error: ' + err.message;
         viewer.innerHTML = '';
-        console.error(err);
       }
     }
 
