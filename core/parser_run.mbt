@@ -30,7 +30,7 @@ fn apply_break_nodes(runs : Array[RenderRun]) -> Unit {
             rtl: run.rtl,
             is_line_break: false, is_page_break: false, is_image: false,
             image_data_url: "", image_width: 0, image_height: 0,
-            is_attachment: false, attachment_name: "",
+            is_attachment: false, attachment_name: "", form_field: None,
           })
         }
         result.push(RenderRun::{
@@ -49,7 +49,7 @@ fn apply_break_nodes(runs : Array[RenderRun]) -> Unit {
           is_line_break: ch == 0x0B,
           is_page_break: ch == 0x0C,
           is_image: false, image_data_url: "", image_width: 0, image_height: 0,
-          is_attachment: false, attachment_name: "",
+          is_attachment: false, attachment_name: "", form_field: None,
         })
         seg_start = j + 1
       }
@@ -73,7 +73,7 @@ fn apply_break_nodes(runs : Array[RenderRun]) -> Unit {
         rtl: run.rtl,
         is_line_break: false, is_page_break: false, is_image: false,
         image_data_url: "", image_width: 0, image_height: 0,
-        is_attachment: false, attachment_name: "",
+        is_attachment: false, attachment_name: "", form_field: None,
       })
     }
     if text_len == 0 {
@@ -93,7 +93,7 @@ fn apply_break_nodes(runs : Array[RenderRun]) -> Unit {
         rtl: run.rtl,
         is_line_break: false, is_page_break: false, is_image: false,
         image_data_url: "", image_width: 0, image_height: 0,
-        is_attachment: false, attachment_name: "",
+        is_attachment: false, attachment_name: "", form_field: None,
       })
     }
   }
@@ -709,7 +709,7 @@ fn state_to_run(text : String, state : CharState, href : String) -> RenderRun {
     scale: state.scale, position_half_points: state.position_half_points,
     rtl: state.rtl, is_line_break: false, is_page_break: false,
     is_image: false, image_data_url: "", image_width: 0, image_height: 0,
-    is_attachment: false, attachment_name: "",
+    is_attachment: false, attachment_name: "", form_field: None,
   }
 }
 
@@ -781,7 +781,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 outline: last.outline, shadow: last.shadow,
                 emboss: last.emboss, imprint: last.imprint,
                 scale: last.scale, position_half_points: last.position_half_points,
-                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
               }
               ci += 1
               continue
@@ -799,7 +799,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
             outline: segment.state.outline, shadow: segment.state.shadow,
             emboss: segment.state.emboss, imprint: segment.state.imprint,
             scale: segment.state.scale, position_half_points: segment.state.position_half_points,
-            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
           }
           field_stack[top_idx].runs.push(new_run)
         } else {
@@ -820,7 +820,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 outline: last.outline, shadow: last.shadow,
                 emboss: last.emboss, imprint: last.imprint,
                 scale: last.scale, position_half_points: last.position_half_points,
-                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
               }
               ci += 1
               continue
@@ -838,7 +838,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
             outline: segment.state.outline, shadow: segment.state.shadow,
             emboss: segment.state.emboss, imprint: segment.state.imprint,
             scale: segment.state.scale, position_half_points: segment.state.position_half_points,
-            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
           })
         }
         ci += 1
@@ -875,6 +875,9 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
         let instr_str = top.instruction.to_string()
         let instr_result = decode_field_instruction(instr_str)
         let is_hl = instr_result.instr_type == "hyperlink" && instr_result.href.length() > 0
+        // Detect form field types
+        let is_form_field = instr_result.instr_type == "formtext" || instr_result.instr_type == "formcheckbox" || instr_result.instr_type == "formdropdown"
+        let form_field_type = if instr_result.instr_type == "formtext" { "text" } else if instr_result.instr_type == "formcheckbox" { "checkbox" } else if instr_result.instr_type == "formdropdown" { "dropdown" } else { "" }
         field_stack[top_idx] = InlineFieldCtx::{
           instruction: top.instruction,
           parsed_href: if is_hl { instr_result.href } else { "" },
@@ -923,9 +926,55 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 is_image: old_run.is_image, image_data_url: old_run.image_data_url,
                 image_width: old_run.image_width, image_height: old_run.image_height,
                 is_attachment: old_run.is_attachment, attachment_name: old_run.attachment_name,
+                form_field: None,
               }
             }
             ri += 1
+          }
+        }
+        // Apply form field data to runs if it's a form field
+        let instr_for_form = if current.reading_instruction {
+          let instr_str2 = current.instruction.to_string()
+          let instr_result2 = decode_field_instruction(instr_str2)
+          instr_result2.instr_type
+        } else {
+          let instr_str2 = current.instruction.to_string()
+          let instr_result2 = decode_field_instruction(instr_str2)
+          instr_result2.instr_type
+        }
+        if instr_for_form == "formtext" || instr_for_form == "formcheckbox" || instr_for_form == "formdropdown" {
+          let ff_type = if instr_for_form == "formtext" { "text" } else if instr_for_form == "formcheckbox" { "checkbox" } else { "dropdown" }
+          let ff = FormFieldData::{
+            field_type: ff_type,
+            name: "",
+            default_value: "",
+            checked: false,
+            selected_index: 0,
+            items: [],
+          }
+          let mut ri2 = 0
+          while ri2 < current.runs.length() {
+            let old_run = current.runs[ri2]
+            current.runs[ri2] = RenderRun::{
+              text: old_run.text, bold: old_run.bold, italic: old_run.italic,
+              underline: old_run.underline, strike: old_run.strike,
+              double_strike: old_run.double_strike, font_size: old_run.font_size,
+              font_family: old_run.font_family, color: old_run.color,
+              highlight: old_run.highlight, superscript: old_run.superscript,
+              subscript: old_run.subscript, href: old_run.href,
+              bold_bi: old_run.bold_bi, italic_bi: old_run.italic_bi,
+              small_caps: old_run.small_caps, caps: old_run.caps,
+              outline: old_run.outline, shadow: old_run.shadow,
+              emboss: old_run.emboss, imprint: old_run.imprint,
+              scale: old_run.scale, position_half_points: old_run.position_half_points,
+              rtl: old_run.rtl, is_line_break: old_run.is_line_break,
+              is_page_break: old_run.is_page_break,
+              is_image: old_run.is_image, image_data_url: old_run.image_data_url,
+              image_width: old_run.image_width, image_height: old_run.image_height,
+              is_attachment: old_run.is_attachment, attachment_name: old_run.attachment_name,
+              form_field: Some(ff),
+            }
+            ri2 += 1
           }
         }
         // Emit runs to parent (field stack or output)
@@ -978,7 +1027,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
           scale: 100, position_half_points: 0, rtl: false,
           is_line_break: true, is_page_break: false, is_image: false,
           image_data_url: "", image_width: 0, image_height: 0,
-          is_attachment: false, attachment_name: "",
+          is_attachment: false, attachment_name: "", form_field: None,
         }
         if field_stack.length() > 0 {
           let top_idx3 = field_stack.length() - 1
@@ -1004,7 +1053,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
           scale: 100, position_half_points: 0, rtl: false,
           is_line_break: false, is_page_break: true,
           is_image: false, image_data_url: "", image_width: 0, image_height: 0,
-          is_attachment: false, attachment_name: "",
+          is_attachment: false, attachment_name: "", form_field: None,
         }
         if field_stack.length() > 0 {
           field_stack[field_stack.length() - 1].runs.push(pb_run)
@@ -1038,6 +1087,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               is_image: a.asset_type == "image", image_data_url: a.data_url,
               image_width: a.width, image_height: a.height,
               is_attachment: a.asset_type == "attachment", attachment_name: a.id,
+              form_field: None,
             }
             if field_stack.length() > 0 {
               field_stack[field_stack.length() - 1].runs.push(img_run)
@@ -1079,7 +1129,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               outline: last.outline, shadow: last.shadow,
               emboss: last.emboss, imprint: last.imprint,
               scale: last.scale, position_half_points: last.position_half_points,
-              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
             }
             ci += 1
             continue
@@ -1107,7 +1157,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               outline: last.outline, shadow: last.shadow,
               emboss: last.emboss, imprint: last.imprint,
               scale: last.scale, position_half_points: last.position_half_points,
-              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
             }
             ci += 1
             continue
@@ -1164,7 +1214,7 @@ fn merge_adjacent_runs(runs : Array[RenderRun]) -> Array[RenderRun] {
         caps: prev.caps, outline: prev.outline, shadow: prev.shadow,
         emboss: prev.emboss, imprint: prev.imprint, scale: prev.scale,
         position_half_points: prev.position_half_points, rtl: prev.rtl,
-        is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+        is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
       }
     } else {
       merged.push(curr)
@@ -1235,7 +1285,7 @@ fn build_char_runs(chpx_runs : Array[ChpxRun], text : String, para_cp_start : In
           emboss: base_state.emboss, imprint: base_state.imprint,
           scale: base_state.scale, position_half_points: base_state.position_half_points,
           rtl: base_state.rtl,
-          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
         })
       }
     }
@@ -1286,7 +1336,7 @@ fn build_char_runs(chpx_runs : Array[ChpxRun], text : String, para_cp_start : In
             emboss: base_state.emboss, imprint: base_state.imprint,
             scale: base_state.scale, position_half_points: base_state.position_half_points,
             rtl: base_state.rtl,
-            is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+            is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
           })
         }
       }
@@ -1335,7 +1385,7 @@ fn build_char_runs(chpx_runs : Array[ChpxRun], text : String, para_cp_start : In
           scale: state.scale,
           position_half_points: state.position_half_points,
           rtl: state.rtl,
-          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
         })
       }
     }
@@ -1381,7 +1431,7 @@ fn build_char_runs(chpx_runs : Array[ChpxRun], text : String, para_cp_start : In
           emboss: base_state.emboss, imprint: base_state.imprint,
           scale: base_state.scale, position_half_points: base_state.position_half_points,
           rtl: base_state.rtl,
-          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "",
+          is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
         })
       }
     }

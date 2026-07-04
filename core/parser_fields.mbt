@@ -281,5 +281,20 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{ instr_type: "link", href: "", target: "", raw }
   }
 
+  // FORMTEXT (8 chars)
+  if remaining >= 8 && ci_eq_prefix(inst_str, start, "FORMTEXT") {
+    return FieldInstructionResult::{ instr_type: "formtext", href: "", target: "", raw }
+  }
+
+  // FORMCHECKBOX (12 chars)
+  if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMCHECKBOX") {
+    return FieldInstructionResult::{ instr_type: "formcheckbox", href: "", target: "", raw }
+  }
+
+  // FORMDROPDOWN (12 chars)
+  if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMDROPDOWN") {
+    return FieldInstructionResult::{ instr_type: "formdropdown", href: "", target: "", raw }
+  }
+
   FieldInstructionResult::{ instr_type: "unknown", href: "", target: "", raw }
 }

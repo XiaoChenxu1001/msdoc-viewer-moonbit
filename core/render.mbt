@@ -80,6 +80,12 @@ pub fn get_default_css() -> String {
   ".msdoc-attachments{margin-top:20px;padding-top:12px;border-top:1px solid #e5e7eb}" +
   ".msdoc-attachments-title{font-weight:600;margin-bottom:8px}" +
 
+  // Form field styles
+  ".msdoc-form-field{display:inline-block;margin:0 2px}" +
+  ".msdoc-form-text{border:1px solid #999;padding:2px 4px;font-size:inherit;background:#f9f9f9;min-width:100px}" +
+  ".msdoc-form-checkbox{margin:0 2px}" +
+  ".msdoc-form-dropdown{border:1px solid #999;padding:2px 4px;font-size:inherit;background:#f9f9f9}" +
+
   // Page break
   ".msdoc-page-break{display:block;height:0;border-top:1px dashed #cbd5e1;margin:16px 0}" +
 
@@ -96,6 +102,15 @@ pub fn get_default_css() -> String {
   // Footnote/Endnote styles
   ".msdoc-footnotes,.msdoc-endnotes{margin-top:24px;padding-top:12px;border-top:1px solid #d0d7de}" +
   ".msdoc-footnotes-title,.msdoc-endnotes-title{font-weight:600;font-size:12px;margin-bottom:8px;color:#666}" +
+
+  // Comment styles
+  ".msdoc-comments{margin-top:24px;padding-top:12px;border-top:1px solid #ffc107}" +
+  ".msdoc-comments-title{font-weight:600;font-size:12px;margin-bottom:8px;color:#856404}" +
+  ".msdoc-comment{margin:8px 0;padding:8px;background:#fff3cd;border-radius:4px;border-left:3px solid #ffc107}" +
+  ".msdoc-comment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}" +
+  ".msdoc-comment-author{font-weight:600;font-size:12px;color:#856404}" +
+  ".msdoc-comment-num{font-size:11px;color:#856404;opacity:0.7}" +
+  ".msdoc-comment-text{font-size:13px;color:#333}" +
   ".msdoc-footnote,.msdoc-endnote{font-size:11px;margin:4px 0;line-height:1.5;color:#555}" +
 
   // Heading styles
@@ -242,6 +257,25 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
     for edn in parsed.endnotes {
       if edn.text.length() > 0 {
         html <+ "<div class=\"msdoc-endnote\">\{edn.note_index}. \{escape_html_text(edn.text)}</div>"
+      }
+    }
+    html <+ "</div>"
+  }
+
+  // Render comments
+  if parsed.comments.length() > 0 {
+    html <+ "<div class=\"msdoc-comments\">"
+    html <+ "<div class=\"msdoc-comments-title\">Comments</div>"
+    for c in parsed.comments {
+      if c.text.length() > 0 {
+        let author_display = if c.author.length() > 0 { escape_html_text(c.author) + ": " } else { "" }
+        html <+ "<div class=\"msdoc-comment\" data-comment-id=\"\{c.comment_index}\">"
+        html <+ "<div class=\"msdoc-comment-header\">"
+        html <+ "<span class=\"msdoc-comment-author\">\{author_display}</span>"
+        html <+ "<span class=\"msdoc-comment-num\">#\{c.comment_index}</span>"
+        html <+ "</div>"
+        html <+ "<div class=\"msdoc-comment-text\">\{escape_html_text(c.text)}</div>"
+        html <+ "</div>"
       }
     }
     html <+ "</div>"
@@ -521,6 +555,34 @@ fn render_run_html(run : RenderRun) -> String {
       return "<a href=\"\{run.image_data_url}\" class=\"msdoc-attachment\" download=\"\{escape_html_text(label)}\">\{escape_html_text(label)}</a>"
     }
     return ""
+  }
+  // form field: emit appropriate HTML form element
+  match run.form_field {
+    Some(ff) => {
+      match ff.field_type {
+        "text" => {
+          let val = if ff.default_value.length() > 0 { escape_html_text(ff.default_value) } else { "" }
+          return "<span class=\"msdoc-form-field\"><input type=\"text\" value=\"\{val}\" class=\"msdoc-form-text\" readonly></span>"
+        }
+        "checkbox" => {
+          let checked_attr = if ff.checked { " checked" } else { "" }
+          return "<span class=\"msdoc-form-field\"><input type=\"checkbox\" class=\"msdoc-form-checkbox\" disabled\{checked_attr}></span>"
+        }
+        "dropdown" => {
+          let options = StringBuilder::new()
+          if ff.items.length() > 0 {
+            for i in 0..<ff.items.length() {
+              let selected = if i == ff.selected_index { " selected" } else { "" }
+              options <+ "<option\{selected}>\{escape_html_text(ff.items[i])}</option>"
+            }
+          }
+          return "<span class=\"msdoc-form-field\"><select class=\"msdoc-form-dropdown\" disabled>\{options}</select></span>"
+        }
+        _ => ()
+      }
+      return ""
+    }
+    None => ()
   }
 
   let style = StringBuilder::new()

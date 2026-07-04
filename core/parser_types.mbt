@@ -1,6 +1,16 @@
 ///| MS-DOC parser type definitions
 ///| Extracted from parser.mbt for better organization
 
+///| Form field data (text/checkbox/dropdown)
+pub struct FormFieldData {
+  field_type : String  // "text", "checkbox", "dropdown"
+  name : String
+  default_value : String  // text field default
+  checked : Bool          // checkbox state
+  selected_index : Int    // dropdown selected item
+  items : Array[String]   // dropdown items
+}
+
 ///| Render run (text span with formatting)
 pub struct RenderRun {
   text : String
@@ -35,6 +45,7 @@ pub struct RenderRun {
   image_height : Int
   is_attachment : Bool
   attachment_name : String
+  form_field : Option[FormFieldData]
 }
 
 ///| Paragraph info with formatting
@@ -119,6 +130,7 @@ pub struct MsDocParseResult {
   footnotes : Array[Footnote]
   endnotes : Array[Footnote]
   summary : Option[SummaryInfo]
+  comments : Array[Comment]
   raw_data : FixedArray[Byte]
   image_config : ImageProcessorConfig
   image_cache : Map[Int, Asset]
@@ -199,6 +211,15 @@ pub struct SectionProperties {
   // Columns
   column_count : Int          // sprmNBpc: number of columns (default 1)
   column_spacing : Int        // sprmSClm: space between columns (twips)
+}
+
+///| Comment (批注)
+pub struct Comment {
+  anchor_cp : Int           // 主文档中锚点 CP 位置
+  text : String             // 批注文本内容
+  author : String           // 作者名称
+  comment_index : Int       // 批注序号 (1-based)
+  parent_index : Int        // 父批注索引 (-1 为顶级)
 }
 
 ///| Footnote/Endnote content

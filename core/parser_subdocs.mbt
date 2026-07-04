@@ -108,3 +108,42 @@ pub fn extract_textbox_text(
   let cp_end = cp_start + ccp_txbx
   extract_subdocument_text(word_bytes, cps, plc_reader, pcd_count, cp_start, cp_end)
 }
+
+///| Extract header textbox subdocument text
+///| Header textboxes live after all other subdocuments including regular textboxes
+pub fn extract_header_textbox_text(
+  word_bytes : FixedArray[Byte],
+  cps : Array[Int],
+  plc_reader : BinaryReader,
+  pcd_count : Int,
+  main_story_end : Int,
+  ccp_ftn : Int,
+  ccp_hdd : Int,
+  ccp_atn : Int,
+  ccp_edn : Int,
+  ccp_txbx : Int,
+  ccp_hdr_txbx : Int,
+) -> String {
+  if ccp_hdr_txbx <= 0 { return "" }
+  let cp_start = main_story_end + ccp_ftn + ccp_hdd + ccp_atn + ccp_edn + ccp_txbx
+  let cp_end = cp_start + ccp_hdr_txbx
+  extract_subdocument_text(word_bytes, cps, plc_reader, pcd_count, cp_start, cp_end)
+}
+
+///| Extract comment (annotation) subdocument text
+///| Comments live in the CP range [ccpText + ccpFtn + ccpHdd, + ccpAtn)
+pub fn extract_comment_text(
+  word_bytes : FixedArray[Byte],
+  cps : Array[Int],
+  plc_reader : BinaryReader,
+  pcd_count : Int,
+  main_story_end : Int,
+  ccp_ftn : Int,
+  ccp_hdd : Int,
+  ccp_atn : Int,
+) -> String {
+  if ccp_atn <= 0 { return "" }
+  let cp_start = main_story_end + ccp_ftn + ccp_hdd
+  let cp_end = cp_start + ccp_atn
+  extract_subdocument_text(word_bytes, cps, plc_reader, pcd_count, cp_start, cp_end)
+}

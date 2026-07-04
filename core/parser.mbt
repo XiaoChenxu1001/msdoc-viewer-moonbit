@@ -12,7 +12,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "WordDocument stream not found"))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -25,7 +25,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   // Check for encryption (bit 8 of flags at offset 10)
   if (flags & 0x0100) != 0 {
     ignore(push_warning(warnings, "Encrypted .doc file detected, not supported"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let f_which_tbl_stm = if (flags & 0x0200) != 0 { 1 } else { 0 }
@@ -37,7 +37,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     Some(bytes) => bytes
     None => {
       ignore(push_warning(warnings, "Table stream not found: " + table_name))
-      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+      return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
     }
   }
 
@@ -60,7 +60,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if lcb_clx <= 0 {
     ignore(push_warning(warnings, "No CLX data"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CLX bytes from table stream (zero-copy view)
@@ -76,7 +76,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if clx_offset >= clx_view.length() || clx_reader.u8(clx_offset) != 0x02 {
     ignore(push_warning(warnings, "CLX does not contain Pcdt marker"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   let lcb = clx_reader.u32(clx_offset + 1)
@@ -88,7 +88,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
 
   if pcd_count <= 0 {
     ignore(push_warning(warnings, "No pieces found"))
-    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
+    return MsDocParseResult::{ text: "", paragraphs: [], blocks: [], warnings, assets: [], meta: None, fonts: [], styles: [], textboxes: [], headers: [], footers: [], sections: [], footnotes: [], endnotes: [], summary: None, comments: [], raw_data: [], image_config: default_image_config(), image_cache: Map([], capacity=16), content_dedup_cache: Map([], capacity=16) }
   }
 
   // Read CP array
@@ -118,7 +118,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       actual_byte_end: actual_byte_start + byte_length,
     }
     let piece_text = extract_piece_text(word_bytes, piece)
-    ignore(piece_text)
+    document_text <+ "\{piece_text}"
     piece_offset += 8
   }
 
@@ -232,6 +232,78 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       }
       cp_offset += (seg_end - seg_start)
       seg_start = if seg_end < full_len { seg_end + 1 } else { full_len }
+    }
+  }
+
+  // Extract header textbox subdocument text
+  let ccp_hdr_txbx = if cslw_offset + 2 + 10 * 4 + 4 <= word_bytes.length() {
+    fib_reader.u32(cslw_offset + 2 + 10 * 4)
+  } else { 0 }
+  let fc_plcfhdrtxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 58 * 8)
+  let lcb_plcfhdrtxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 58 * 8 + 4)
+
+  // Extract header textbox subdocument text from piece table
+  let hdr_txbx_full = if ccp_hdr_txbx > 0 {
+    let ccp_ftn_h = fib_reader.u32(cslw_offset + 2 + 4 * 4)
+    let ccp_hdd_h = fib_reader.u32(cslw_offset + 2 + 5 * 4)
+    let ccp_atn_h = fib_reader.u32(cslw_offset + 2 + 7 * 4)
+    let ccp_edn_h = fib_reader.u32(cslw_offset + 2 + 8 * 4)
+    let ccp_txbx_h = fib_reader.u32(cslw_offset + 2 + 9 * 4)
+    extract_header_textbox_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn_h, ccp_hdd_h, ccp_atn_h, ccp_edn_h, ccp_txbx_h, ccp_hdr_txbx)
+  } else {
+    ""
+  }
+
+  // Parse PlcfHdrtxbxTxt for individual header textbox boundaries
+  if hdr_txbx_full.length() > 0 && lcb_plcfhdrtxbx_txt > 0 && fc_plcfhdrtxbx_txt + lcb_plcfhdrtxbx_txt <= table_bytes.length() {
+    let hdr_txbx_view = table_bytes.view(start=fc_plcfhdrtxbx_txt, end=fc_plcfhdrtxbx_txt + lcb_plcfhdrtxbx_txt)
+    let hdr_txbx_reader = BinaryReader::from_view(hdr_txbx_view)
+    let hdr_txbx_count = if lcb_plcfhdrtxbx_txt >= 4 { (lcb_plcfhdrtxbx_txt - 4) / 26 } else { 0 }
+
+    if hdr_txbx_count > 0 {
+      let hdr_txbx_cps = Array::new()
+      for i in 0..<(hdr_txbx_count + 1) {
+        hdr_txbx_cps.push(hdr_txbx_reader.u32(i * 4))
+      }
+      let hdr_ftxbxs_offset = (hdr_txbx_count + 1) * 4
+      for i in 0..<hdr_txbx_count {
+        let ftxbxs_base = hdr_ftxbxs_offset + i * 22
+        let f_reusable = hdr_txbx_reader.u16(ftxbxs_base + 8)
+        let lid = hdr_txbx_reader.u32(ftxbxs_base + 14)
+
+        if f_reusable == 0 {
+          let cp_s = hdr_txbx_cps[i]
+          let cp_e_raw = hdr_txbx_cps[i + 1]
+          let cp_e = if cp_e_raw > hdr_txbx_full.length() { hdr_txbx_full.length() } else { cp_e_raw }
+          if cp_s >= 0 && cp_s < cp_e && cp_e <= hdr_txbx_full.length() {
+            let raw_text = hdr_txbx_full[cp_s:cp_e]
+            let mut text_start = 0
+            let raw_len = raw_text.length()
+            while text_start < raw_len {
+              let ch = raw_text[text_start]
+              if ch.to_int() >= 0x20 || ch.to_int() == 0x0D { break }
+              text_start += 1
+            }
+            let mut text_end = raw_len
+            while text_end > text_start {
+              let ch = raw_text[text_end - 1]
+              if ch.to_int() >= 0x20 || ch.to_int() == 0x0D { break }
+              text_end -= 1
+            }
+            let tb_text = raw_text[text_start:text_end].replace(old = "\r", new = "\n").trim().to_owned()
+            if tb_text.length() > 0 {
+              // Compute CP offset: main_story_end + all subdocument sizes before header textbox
+              let hdr_txbx_cp_offset = main_story_end + fib_reader.u32(cslw_offset + 2 + 4 * 4) + fib_reader.u32(cslw_offset + 2 + 5 * 4) + fib_reader.u32(cslw_offset + 2 + 7 * 4) + fib_reader.u32(cslw_offset + 2 + 8 * 4) + fib_reader.u32(cslw_offset + 2 + 9 * 4)
+              textboxes.push(TextBox::{
+                shape_id: lid,
+                text: tb_text,
+                cp_start: hdr_txbx_cp_offset + cp_s,
+                cp_end: hdr_txbx_cp_offset + cp_e,
+              })
+            }
+          }
+        }
+      }
     }
   }
 
@@ -397,6 +469,103 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
               ref_cp: 0,  // Will be set later when we find the reference mark
               note_index: i + 1,
               is_endnote: true,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  // Extract comment (annotation) subdocument text
+  let comments = Array::new()
+  let ccp_atn = if cslw_offset + 2 + 7 * 4 + 4 <= table_bytes.length() {
+    fib_reader.u32(cslw_offset + 2 + 7 * 4)
+  } else { 0 }
+
+  if ccp_atn > 0 {
+    // Extract comment document text from piece table
+    let comment_full = extract_comment_text(word_bytes, cps, plc_reader, pcd_count, main_story_end, ccp_ftn, ccp_hdd, ccp_atn)
+
+    // Parse PlcfandTxt to get individual comment text boundaries
+    let fc_plcfand_txt = fib_reader.u32(fib_rgfc_lcb_start + 5 * 8)
+    let lcb_plcfand_txt = fib_reader.u32(fib_rgfc_lcb_start + 5 * 8 + 4)
+
+    // Parse PlcfandRef to get anchor positions in main document
+    let fc_plcfand_ref = fib_reader.u32(fib_rgfc_lcb_start + 4 * 8)
+    let lcb_plcfand_ref = fib_reader.u32(fib_rgfc_lcb_start + 4 * 8 + 4)
+
+    // Parse GrpXstAtnOwners for author names
+    let fc_grpxstatnowners = fib_reader.u32(fib_rgfc_lcb_start + 36 * 8)
+    let lcb_grpxstatnowners = fib_reader.u32(fib_rgfc_lcb_start + 36 * 8 + 4)
+
+    let has_atn_txt = lcb_plcfand_txt > 0 && fc_plcfand_txt + lcb_plcfand_txt <= table_bytes.length()
+    let has_atn_ref = lcb_plcfand_ref > 0 && fc_plcfand_ref + lcb_plcfand_ref <= table_bytes.length()
+
+    if has_atn_txt && has_atn_ref {
+      let atn_txt_view = table_bytes.view(start=fc_plcfand_txt, end=fc_plcfand_txt + lcb_plcfand_txt)
+      let atn_txt_reader = BinaryReader::from_view(atn_txt_view)
+      let atn_ref_view = table_bytes.view(start=fc_plcfand_ref, end=fc_plcfand_ref + lcb_plcfand_ref)
+      let atn_ref_reader = BinaryReader::from_view(atn_ref_view)
+
+      // PlcfandTxt: (N+1) CPs for N comments (zero-byte data elements)
+      let atn_count = (lcb_plcfand_txt - 4) / 4
+      let atn_txt_cps = Array::new()
+      for i in 0..<(atn_count + 1) {
+        atn_txt_cps.push(atn_txt_reader.u32(i * 4))
+      }
+
+      // PlcfandRef: (N+1) CPs + N ATRDPre10 (30 bytes each)
+      let atn_ref_cps = Array::new()
+      for i in 0..<(atn_count + 1) {
+        atn_ref_cps.push(atn_ref_reader.u32(i * 4))
+      }
+
+      // Parse author names from GrpXstAtnOwners (STTB format)
+      let authors = Array::new()
+      if lcb_grpxstatnowners > 0 && fc_grpxstatnowners + lcb_grpxstatnowners <= table_bytes.length() {
+        let owners_view = table_bytes.view(start=fc_grpxstatnowners, end=fc_grpxstatnowners + lcb_grpxstatnowners)
+        let owners_reader = BinaryReader::from_view(owners_view)
+        if lcb_grpxstatnowners >= 6 {
+          let f_extend = owners_reader.u16(0)
+          let c_data = owners_reader.u16(2)
+          if f_extend == 0xFFFF {
+            let mut offset = 6
+            for _i in 0..<c_data.min(100) {
+              if offset + 2 > lcb_grpxstatnowners { break }
+              let cch = owners_reader.u16(offset)
+              offset += 2
+              if cch > 0 && offset + cch * 2 <= lcb_grpxstatnowners {
+                let name = owners_reader.utf16le(offset, cch * 2)
+                authors.push(name)
+              } else {
+                authors.push("")
+              }
+              offset += cch * 2
+              if offset < lcb_grpxstatnowners {
+                let cb_extra = owners_reader.u8(offset)
+                offset += 1 + cb_extra
+              }
+            }
+          }
+        }
+      }
+
+      // Extract each comment
+      for i in 0..<atn_count {
+        let cp_s = atn_txt_cps[i]
+        let cp_e = atn_txt_cps[i + 1]
+        if cp_e > cp_s && cp_s < comment_full.length() {
+          let actual_end = if cp_e > comment_full.length() { comment_full.length() } else { cp_e }
+          let comment_text = comment_full[cp_s:actual_end].replace(old = "\r", new = "\n").trim().to_owned()
+          if comment_text.length() > 0 {
+            let anchor_cp = if i < atn_ref_cps.length() { atn_ref_cps[i] } else { 0 }
+            let author = if i < authors.length() { authors[i] } else { "" }
+            comments.push(Comment::{
+              anchor_cp,
+              text: comment_text,
+              author,
+              comment_index: i + 1,
+              parent_index: -1,
             })
           }
         }
@@ -804,6 +973,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
     footnotes,
     endnotes,
     summary,
+    comments,
     raw_data: input,
     image_config: default_image_config(),
     image_cache: Map([], capacity=16),
