@@ -3,9 +3,12 @@
 
 ///| Parse MS-DOC and return a ParseContext for chunk-based rendering
 ///| Phase 1: does ALL parsing work (CFB, FIB, styles, paragraphs, blocks)
+///| Also pre-processes all images so they're ready during chunk rendering
 ///| Phase 2: render_chunk() / render_footer_html() consume the context
 pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
   let result = parse_ms_doc(input)
+  // Pre-process all images with dedup support — images ready for chunk rendering
+  let processed_assets = preload_all_images(result)
   ParseContext::{
     blocks: result.blocks,
     text: result.text,
@@ -17,7 +20,7 @@ pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
     footnotes: result.footnotes,
     endnotes: result.endnotes,
     comments: result.comments,
-    assets: result.assets,
+    assets: processed_assets,
     meta: result.meta,
     fonts: result.fonts,
     styles: result.styles,

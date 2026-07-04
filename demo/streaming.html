@@ -136,25 +136,24 @@
         footWrapper.innerHTML = footer;
         while (footWrapper.firstChild) { viewer.appendChild(footWrapper.firstChild); }
 
-        // Phase 4: Extract images using extract_image_with_fallback (same path as js.html)
+        // Phase 4: Get ALL image data URLs in one batch (no per-image calls)
         statusText.textContent = 'Loading images...';
-        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-        console.log(`[Stream] ${imageCount} assets, ${placeholderEls.length} placeholders in DOM`);
+        const allImagesResult = await callWorker('streamGetAllImages');
+        // Parse batch result: "count|||url0|||url1|||..."
+        const imgParts = allImagesResult.split('|||');
+        const imageCount2 = parseInt(imgParts[0], 10);
+        const imageUrls = imgParts.slice(1);
+        console.log(`[Stream] ${imageCount2} pre-processed images ready`);
 
-        // Iterate through all assets, extract real images, apply to placeholders in order
+        // Apply images to DOM placeholders in order
+        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
         let replaced = 0;
-        for (let i = 0; i < imageCount + placeholderEls.length + 5; i++) {
-          try {
-            const dataUrl = await callWorker('streamExtractImage', null, { assetIndex: i });
-            if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml') && replaced < placeholderEls.length) {
-              placeholderEls[replaced].src = dataUrl;
-              placeholderEls[replaced].removeAttribute('data-placeholder');
-              replaced++;
-              console.log(`[Stream] Image ${replaced}: asset ${i}, url_len=${dataUrl.length}`);
-            }
-            if (replaced >= placeholderEls.length) break;
-            await new Promise(r => setTimeout(r, 0));
-          } catch (e) { /* skip */ }
+        for (let i = 0; i < placeholderEls.length && i < imageUrls.length; i++) {
+          if (imageUrls[i] && imageUrls[i].startsWith('data:')) {
+            placeholderEls[i].src = imageUrls[i];
+            placeholderEls[i].removeAttribute('data-placeholder');
+            replaced++;
+          }
         }
         console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} images`);
 

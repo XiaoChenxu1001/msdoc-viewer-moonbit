@@ -57,24 +57,30 @@ pub fn worker_stream_get_offsets() -> String {
   result
 }
 
-///| Extract a single image from the stored ParseContext
-///| Processes raw image bytes using process_raw_image_asset
-///| Returns the data_url string for the image at the given asset index
+///| Get image data URL from the stored ParseContext
+///| Images are pre-processed during streamInit, so this just returns the data URL
 pub fn worker_stream_extract_image(asset_index : Int) -> String {
   if _ctx_holder.length() == 0 { return "" }
   let ctx = _ctx_holder[0]
   if asset_index < 0 || asset_index >= ctx.assets.length() { return "" }
-  let asset = ctx.assets[asset_index]
-  // If already processed (not placeholder), return directly
-  if asset.data_url.length() > 0 && !asset.data_url.has_prefix("data:image/svg+xml") {
-    return asset.data_url
+  ctx.assets[asset_index].data_url
+}
+
+///| Get all image data URLs in one batch — no per-image postMessage needed
+///| Returns: count|||url0|||url1|||...|||urlN
+pub fn worker_stream_get_all_images() -> String {
+  if _ctx_holder.length() == 0 { return "0" }
+  let ctx = _ctx_holder[0]
+  let sb = StringBuilder::new()
+  let mut count = 0
+  for asset in ctx.assets {
+    if asset.asset_type == "image" && asset.data_url.length() > 0 && !asset.data_url.has_prefix("data:image/svg+xml") {
+      if count > 0 { sb <+ "|||" }
+      sb <+ "\{asset.data_url}"
+      count += 1
+    }
   }
-  // If has raw bytes, process them
-  if asset.bytes.length() > 0 {
-    let processed = @core.process_raw_image_asset(asset)
-    return processed.data_url
-  }
-  ""
+  "\{count}|||\{sb.to_string()}"
 }
 
 ///| Release context after all work is done
