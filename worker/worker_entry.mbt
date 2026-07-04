@@ -53,13 +53,22 @@ pub fn worker_extract_image(input : FixedArray[Byte], picture_offset : Int) -> S
   try {
     let warnings = Array::new()
     let container = @core.parse_cfb(input, warnings)
+    println("[extract] input_len=\{input.length()}, offset=\{picture_offset}")
     let data_bytes = match @core.cfb_get_stream(container, "Data") {
       Some(bytes) => bytes
       None => return "ERROR: Data stream not found"
     }
+    println("[extract] data_stream_len=\{data_bytes.length()}")
     let extractor = @core.create_image_extractor(data_bytes)
     match @core.extract_image(extractor, picture_offset) {
-      Some(asset) => asset.data_url
+      Some(asset) => {
+        let url_len = asset.data_url.length()
+        let b0 = if url_len > 22 { asset.data_url[22].to_int() } else { 0 }
+        let b1 = if url_len > 23 { asset.data_url[23].to_int() } else { 0 }
+        let b2 = if url_len > 24 { asset.data_url[24].to_int() } else { 0 }
+        println("[extract] OK: bytes_len=\{asset.bytes.length()}, url_len=\{url_len}, base64[22..25]=\{b0}\{b1}\{b2}")
+        asset.data_url
+      }
       None => "ERROR: Image extraction failed"
     }
   } catch {

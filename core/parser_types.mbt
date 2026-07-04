@@ -244,6 +244,8 @@ pub struct ParseContext {
   endnotes : Array[Footnote]
   comments : Array[Comment]
   assets : Array[Asset]
+  ///| Pre-extracted image data URLs (index matches assets), empty strings for non-image assets
+  image_data_urls : Array[String]
   meta : Option[ParseMeta]
   fonts : Array[FontInfo]
   styles : Array[StyleInfo]

@@ -5,13 +5,12 @@ import {
   worker_parse, worker_render, worker_parse_to_html,
   worker_extract_image, worker_extract_all_images,
   worker_stream_init, worker_stream_chunk, worker_stream_footer,
-  worker_stream_get_offsets,
+  worker_stream_get_images_json,
 } from '../_build/js/release/build/worker/worker.js';
 
 // Streaming state
 let streamTotalBlocks = 0;
 let streamChunkSize = 50;
-let streamPendingResolve = null;
 
 self.onmessage = function(e) {
   const { type, data, id, offset, offsets, start, count, chunkSize } = e.data;
@@ -39,11 +38,13 @@ self.onmessage = function(e) {
       case 'streamInit': {
         streamChunkSize = chunkSize || 50;
         const initResult = worker_stream_init(data);
-        // initResult format: "{total_blocks}|||CSS|||{css}"
-        const parts = initResult.split('|||CSS|||');
-        streamTotalBlocks = parseInt(parts[0], 10);
-        const css = parts[1] || '';
-        self.postMessage({ id, type, result: { totalBlocks: streamTotalBlocks, css } });
+        // Format: "{total_blocks}|||CSS|||{css}|||IMAGES|||{images_json}"
+        const cssSep = initResult.indexOf('|||CSS|||');
+        const imgSep = initResult.indexOf('|||IMAGES|||');
+        streamTotalBlocks = parseInt(initResult.substring(0, cssSep), 10);
+        const css = initResult.substring(cssSep + 9, imgSep);
+        const imagesJson = initResult.substring(imgSep + 11);
+        self.postMessage({ id, type, result: { totalBlocks: streamTotalBlocks, css, imagesJson } });
 
         // Auto-stream: send chunks progressively
         autoStreamChunks(id);
@@ -79,10 +80,9 @@ function autoStreamChunks(initId) {
 
   function sendNextChunk() {
     if (currentStart >= streamTotalBlocks) {
-      // All body chunks done — get offsets before footer releases context
-      const offsets = worker_stream_get_offsets();
+      // All body chunks done — get footer
       const footer = worker_stream_footer();
-      self.postMessage({ id: initId, type: 'streamChunk', result: { done: true, footer, offsets } });
+      self.postMessage({ id: initId, type: 'streamChunk', result: { done: true, footer } });
       return;
     }
 
@@ -97,13 +97,7 @@ function autoStreamChunks(initId) {
     });
 
     // Yield to event loop between chunks for responsiveness
-    if (currentStart < streamTotalBlocks) {
-      setTimeout(sendNextChunk, 0);
-    } else {
-      // Final: send footer
-      const footer = worker_stream_footer();
-      self.postMessage({ id: initId, type: 'streamChunk', result: { done: true, footer } });
-    }
+    setTimeout(sendNextChunk, 0);
   }
 
   // Start sending chunks after a brief yield

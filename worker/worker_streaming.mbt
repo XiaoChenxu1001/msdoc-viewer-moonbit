@@ -5,30 +5,34 @@
 ///| Global context holder (single-element array acts as mutable box)
 let _ctx_holder : Array[@core.ParseContext] = Array::new()
 let _css_holder : Array[String] = Array::new()
-let _offsets_holder : Array[String] = Array::new()
+let _images_json_holder : Array[String] = Array::new()
 
 ///| Initialize streaming parse: parse document, store context, return metadata
-///| Returns: "{total_blocks}|||CSS|||{css}"
+///| Returns: "{total_blocks}|||CSS|||{css}|||IMAGES|||{images_json}"
 pub fn worker_stream_init(input : FixedArray[Byte]) -> String {
   try {
     let ctx = @core.parse_init(input)
     let css = @core.render_css(ctx, "")
     let total = @core.get_block_count(ctx)
 
-    // Collect asset CFB offsets for image extraction
-    let offsets = StringBuilder::new()
+    // Build JSON array of image data URLs: [{"index":N,"data_url":"..."}]
+    let images_sb = StringBuilder::new()
+    images_sb <+ "["
     let mut first = true
-    for asset in ctx.assets {
-      if asset.asset_type == "image" && asset.bytes.length() > 0 {
-        if asset.id.length() > 10 {
-          if !first {
-            offsets <+ ","
-          }
-          first = false
-          offsets <+ "\{asset.id[10 : asset.id.length()]}"
+    let mut idx = 0
+    for url in ctx.image_data_urls {
+      if url.length() > 0 && url.has_prefix("data:") {
+        if !first {
+          images_sb <+ ","
         }
+        first = false
+        // Escape the data_url for JSON (replace " with \")
+        let escaped = url.replace(old = "\"", new = "\\\"")
+        images_sb <+ "{\"index\":\{idx},\"data_url\":\"\{escaped}\"}"
       }
+      idx += 1
     }
+    images_sb <+ "]"
 
     // Clear previous state and store new
     while _ctx_holder.length() > 0 {
@@ -39,11 +43,11 @@ pub fn worker_stream_init(input : FixedArray[Byte]) -> String {
       ignore(_css_holder.unsafe_pop())
     }
     _css_holder.push(css)
-    while _offsets_holder.length() > 0 {
-      ignore(_offsets_holder.unsafe_pop())
+    while _images_json_holder.length() > 0 {
+      ignore(_images_json_holder.unsafe_pop())
     }
-    _offsets_holder.push(offsets.to_string())
-    "\{total}|||CSS|||\{css}"
+    _images_json_holder.push(images_sb.to_string())
+    "\{total}|||CSS|||\{css}|||IMAGES|||\{images_sb.to_string()}"
   } catch {
     e => "ERROR: \{e}"
   }
@@ -70,13 +74,12 @@ pub fn worker_stream_footer() -> String {
   html
 }
 
-///| Get stored asset offsets (comma-separated CFB offsets for image extraction)
-///| Must be called before worker_stream_footer() releases the context
-pub fn worker_stream_get_offsets() -> String {
-  if _offsets_holder.length() == 0 {
-    return ""
+///| Get stored pre-extracted image data URLs as JSON
+pub fn worker_stream_get_images_json() -> String {
+  if _images_json_holder.length() == 0 {
+    return "[]"
   }
-  let result = _offsets_holder[0]
-  ignore(_offsets_holder.unsafe_pop())
+  let result = _images_json_holder[0]
+  ignore(_images_json_holder.unsafe_pop())
   result
 }

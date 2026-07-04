@@ -71,8 +71,7 @@
     let streamTotalBlocks = 0;
     let streamReceived = 0;
     let streamWaitingFor = null;
-    let streamData = null;  // Original file bytes for image extraction
-    let streamOffsets = '';  // Asset offsets for image extraction
+    let streamImagesJson = '[]';  // Pre-extracted image data URLs
 
     function initWorker() {
       worker = new Worker(new URL('../worker/worker_wrapper.js', import.meta.url), { type: 'module' });
@@ -91,22 +90,18 @@
             // Final footer chunk
             streamChunks.push(result.footer || '');
             streamReceived = streamTotalBlocks;
-            streamOffsets = result.offsets || '';
             renderStreamedContent();
+            // Apply pre-extracted images
+            applyPreExtractedImages(streamImagesJson);
             statusDot.className = 'status-dot ready';
-            statusText.textContent = 'Extracting images...';
+            statusText.textContent = 'Complete';
             progressBar.style.display = 'none';
             chunkIndicator.textContent = '';
-
-            // Phase 2: Extract images in parallel
-            loadImagesParallel(streamData, streamOffsets).then(() => {
-              statusText.textContent = 'Complete';
-              // Resolve the waiting promise
-              if (streamWaitingFor) {
-                streamWaitingFor.resolve();
-                streamWaitingFor = null;
-              }
-            });
+            // Resolve the waiting promise
+            if (streamWaitingFor) {
+              streamWaitingFor.resolve();
+              streamWaitingFor = null;
+            }
           } else {
             // Body chunk
             streamChunks.push(result.html);
@@ -126,6 +121,7 @@
         if (type === 'streamInit' && result) {
           streamCss = result.css || '';
           streamTotalBlocks = result.totalBlocks || 0;
+          streamImagesJson = result.imagesJson || '[]';
           streamChunks = [];
           streamReceived = 0;
           return;
@@ -172,38 +168,41 @@
     }
 
     function renderStreamedContent() {
-      // Join all received chunks and render progressively
       const html = streamChunks.join('');
       viewer.innerHTML = '<style>' + streamCss + '</style>' + html;
     }
 
-    async function loadImagesParallel(data, offsetsStr) {
-      const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-      if (placeholderEls.length === 0) return;
-      if (!offsetsStr || offsetsStr.length === 0) return;
+    function applyPreExtractedImages(imagesJson) {
+      try {
+        const images = JSON.parse(imagesJson);
+        if (images.length === 0) return;
 
-      const assetOffsets = offsetsStr.split(',').map(Number);
-      let loaded = 0;
-
-      for (let i = 0; i < placeholderEls.length; i++) {
-        try {
-          const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
-          if (offset < 0) { loaded++; continue; }
-
-          const result = await callWorker('extractImage', data, { offset });
-          if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
-            placeholderEls[i].src = result;
-            placeholderEls[i].removeAttribute('data-placeholder');
-          }
-          loaded++;
-          chunkIndicator.textContent = `Loading images... ${loaded}/${placeholderEls.length}`;
-          await new Promise(r => setTimeout(r, 0));
-        } catch (e) {
-          loaded++;
+        // Build a map from asset index to data_url
+        const urlMap = new Map();
+        for (const img of images) {
+          urlMap.set(img.index, img.data_url);
         }
-      }
 
-      chunkIndicator.textContent = `${loaded} images loaded`;
+        // Find all placeholder images in DOM and replace them
+        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
+        console.log(`[Stream] Applying ${images.length} pre-extracted images to ${placeholderEls.length} placeholders`);
+
+        let replaced = 0;
+        for (let i = 0; i < placeholderEls.length; i++) {
+          if (urlMap.has(i)) {
+            const dataUrl = urlMap.get(i);
+            if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml')) {
+              placeholderEls[i].src = dataUrl;
+              placeholderEls[i].removeAttribute('data-placeholder');
+              replaced++;
+            }
+          }
+        }
+        console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} placeholder images`);
+        chunkIndicator.textContent = `${replaced} images loaded`;
+      } catch (e) {
+        console.error('[Stream] Failed to apply images:', e);
+      }
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
@@ -226,8 +225,7 @@
         streamCss = '';
         streamTotalBlocks = 0;
         streamReceived = 0;
-        streamData = null;
-        streamOffsets = '';
+        streamImagesJson = '[]';
 
         if (!worker) {
           initWorker();
@@ -236,7 +234,6 @@
 
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
-        streamData = data;  // Save for image extraction
 
         statusDot.className = 'status-dot working';
         statusText.textContent = 'Parsing document...';
@@ -245,7 +242,7 @@
 
         const t0 = performance.now();
 
-        // Step 1: Initialize streaming parse
+        // Step 1: Initialize streaming parse (includes image extraction)
         await callWorker('streamInit', data, { chunkSize: 30 });
 
         // Step 2: Wait for all auto-streamed chunks to arrive
@@ -254,7 +251,6 @@
         });
 
         const totalTime = performance.now() - t0;
-        const firstPaintTime = streamChunks.length > 0 ? totalTime * 0.3 : totalTime; // rough estimate
 
         info.style.display = 'block';
         info.innerHTML =
