@@ -1,5 +1,41 @@
 ///| MS-DOC parser - orchestrates all modules
 
+///| Construct a ParagraphInfo from parsed data (reduces 30-field duplication)
+fn make_paragraph(
+  cp_start : Int, cp_end : Int, text : String, runs : Array[RenderRun],
+  style_name : String, para_state : ParaState, papx_result : PapxResult,
+  terminator_byte : Byte,
+) -> ParagraphInfo {
+  ParagraphInfo::{
+    cp_start, cp_end, text, runs, style_name,
+    align: para_state.align,
+    indent_left: para_state.indent_left,
+    indent_right: para_state.indent_right,
+    indent_first: para_state.indent_first,
+    space_before: para_state.space_before,
+    space_after: para_state.space_after,
+    line_spacing: para_state.line_spacing,
+    keep_with_next: para_state.keep_with_next,
+    keep_together: para_state.keep_together,
+    page_break_before: para_state.page_break_before,
+    itap: para_state.itap,
+    table_row_end: para_state.table_row_end,
+    inner_table_cell: para_state.inner_table_cell,
+    inner_table_row_end: para_state.inner_table_row_end,
+    in_table: para_state.in_table,
+    dtap: para_state.dtap,
+    rtl_para: para_state.rtl_para,
+    terminator: terminator_byte,
+    raw_papx: papx_result.raw_props,
+    border_top: para_state.border_top,
+    border_left: para_state.border_left,
+    border_bottom: para_state.border_bottom,
+    border_right: para_state.border_right,
+    outline_level: para_state.outline_level,
+    shading: para_state.shading,
+  }
+}
+
 ///| Parse MS-DOC file
 pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   let warnings = Array::new()
@@ -634,38 +670,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
         ti -= 1
       }
       let terminator_byte = if last_ch == 0x07 { b'\x07' } else { b'\r' }
-      paragraphs.push(ParagraphInfo::{
-        cp_start,
-        cp_end,
-        text: clean_para_text,
-        runs: merged_runs,
-        style_name: papx_result.style_name,
-        align: para_state.align,
-        indent_left: para_state.indent_left,
-        indent_right: para_state.indent_right,
-        indent_first: para_state.indent_first,
-        space_before: para_state.space_before,
-        space_after: para_state.space_after,
-        line_spacing: para_state.line_spacing,
-        keep_with_next: para_state.keep_with_next,
-        keep_together: para_state.keep_together,
-        page_break_before: para_state.page_break_before,
-        itap: para_state.itap,
-        table_row_end: para_state.table_row_end,
-        inner_table_cell: para_state.inner_table_cell,
-        inner_table_row_end: para_state.inner_table_row_end,
-        in_table: para_state.in_table,
-        dtap: para_state.dtap,
-        rtl_para: para_state.rtl_para,
-        terminator: terminator_byte,
-        raw_papx: papx_result.raw_props,
-        border_top: para_state.border_top,
-        border_left: para_state.border_left,
-        border_bottom: para_state.border_bottom,
-        border_right: para_state.border_right,
-        outline_level: para_state.outline_level,
-        shading: para_state.shading,
-      })
+      paragraphs.push(make_paragraph(cp_start, cp_end, clean_para_text, merged_runs, papx_result.style_name, para_state, papx_result, terminator_byte))
       ri += 1
     }
   } else {
@@ -684,38 +689,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers_and_trim(para_text)
         let terminator_byte = if ch == 0x07 { b'\x07' } else { b'\r' }
-        paragraphs.push(ParagraphInfo::{
-          cp_start: start,
-          cp_end: i,
-          text: clean_para_text,
-          runs: merged_runs,
-          style_name: papx_result.style_name,
-          align: para_state.align,
-          indent_left: para_state.indent_left,
-          indent_right: para_state.indent_right,
-          indent_first: para_state.indent_first,
-          space_before: para_state.space_before,
-          space_after: para_state.space_after,
-          line_spacing: para_state.line_spacing,
-          keep_with_next: para_state.keep_with_next,
-          keep_together: para_state.keep_together,
-          page_break_before: para_state.page_break_before,
-          itap: para_state.itap,
-          table_row_end: para_state.table_row_end,
-          inner_table_cell: para_state.inner_table_cell,
-          inner_table_row_end: para_state.inner_table_row_end,
-          in_table: para_state.in_table,
-          dtap: para_state.dtap,
-          rtl_para: para_state.rtl_para,
-          terminator: terminator_byte,
-          raw_papx: papx_result.raw_props,
-          border_top: para_state.border_top,
-          border_left: para_state.border_left,
-          border_bottom: para_state.border_bottom,
-          border_right: para_state.border_right,
-          outline_level: para_state.outline_level,
-          shading: para_state.shading,
-        })
+        paragraphs.push(make_paragraph(start, i, clean_para_text, merged_runs, papx_result.style_name, para_state, papx_result, terminator_byte))
         start = i + 1
       }
       i += 1
@@ -729,38 +703,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       let runs = process_inline_fields(segments, resolver)
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers_and_trim(para_text)
-      paragraphs.push(ParagraphInfo::{
-        cp_start: start,
-        cp_end: String::length(clean_full_text),
-        text: clean_para_text,
-        runs: merged_runs,
-        style_name: papx_result.style_name,
-        align: para_state.align,
-        indent_left: para_state.indent_left,
-        indent_right: para_state.indent_right,
-        indent_first: para_state.indent_first,
-        space_before: para_state.space_before,
-        space_after: para_state.space_after,
-        line_spacing: para_state.line_spacing,
-        keep_with_next: para_state.keep_with_next,
-        keep_together: para_state.keep_together,
-        page_break_before: para_state.page_break_before,
-        itap: para_state.itap,
-        table_row_end: para_state.table_row_end,
-        inner_table_cell: para_state.inner_table_cell,
-        inner_table_row_end: para_state.inner_table_row_end,
-        in_table: para_state.in_table,
-        dtap: para_state.dtap,
-        rtl_para: para_state.rtl_para,
-        terminator: 0x0D,
-        raw_papx: papx_result.raw_props,
-        border_top: para_state.border_top,
-        border_left: para_state.border_left,
-        border_bottom: para_state.border_bottom,
-        border_right: para_state.border_right,
-        outline_level: para_state.outline_level,
-        shading: para_state.shading,
-      })
+      paragraphs.push(make_paragraph(start, String::length(clean_full_text), clean_para_text, merged_runs, papx_result.style_name, para_state, papx_result, b'\r'))
     }
   }
 

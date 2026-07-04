@@ -1,5 +1,28 @@
 ///| Run building and inline field processing for MS-DOC parser
 
+///| Default CharState with standard formatting defaults
+fn default_char_state() -> CharState {
+  CharState::{
+    bold: false, italic: false, underline: 0, strike: false, double_strike: false,
+    font_size: 21, font_family_id: 0, font_family: "", color: 0, highlight: 0,
+    superscript: false, subscript: false, hidden: false,
+    small_caps: false, caps: false, outline: false, shadow: false,
+    emboss: false, imprint: false, spacing: 0, position_half_points: 0,
+    scale: 100, picture_offset: 0, rtl: false, bold_bi: false, italic_bi: false,
+    char_style_id: 0, is_ole2: false, is_data: false, is_object: false,
+  }
+}
+
+///| Resolve font name from font family ID
+fn resolve_font_name(state : CharState, fonts : FontsCollection) -> String {
+  if state.font_family_id > 0 {
+    match font_by_index(fonts, state.font_family_id) {
+      Some(font) => font.name
+      None => state.font_family
+    }
+  } else { state.font_family }
+}
+
 ///| Resolve a single PAPX run by merging its direct properties with the style chain
 fn resolve_papx_run(run : PapxRun, styles : StyleCollection, style_cache : Map[Int, ResolvedStyle]) -> PapxResult {
   let view = run.properties.view()
@@ -212,24 +235,11 @@ fn build_char_segments(chpx_runs : Array[ChpxRun], para_text : String, para_cp_s
               if base_char_props.length() > 0 {
                 char_props_from_decoded(base_char_props)
               } else {
-                CharState::{
-                  bold: false, italic: false, underline: 0, strike: false, double_strike: false,
-                  font_size: 21, font_family_id: 0, font_family: "", color: 0, highlight: 0,
-                  superscript: false, subscript: false, hidden: false,
-                  small_caps: false, caps: false, outline: false, shadow: false,
-                  emboss: false, imprint: false, spacing: 0, position_half_points: 0,
-                  scale: 100, picture_offset: 0, rtl: false, bold_bi: false, italic_bi: false,
-                  char_style_id: 0, is_ole2: false, is_data: false, is_object: false,
-                }
+                default_char_state()
               }
             }
           }
-          let resolved_font = if direct_state.font_family_id > 0 {
-            match font_by_index(fonts, direct_state.font_family_id) {
-              Some(font) => font.name
-              None => direct_state.font_family
-            }
-          } else { direct_state.font_family }
+          let resolved_font = resolve_font_name(direct_state, fonts)
           let final_state = CharState::{
             bold: direct_state.bold, italic: direct_state.italic, underline: direct_state.underline,
             strike: direct_state.strike, double_strike: direct_state.double_strike,
@@ -273,22 +283,9 @@ fn build_char_segments(chpx_runs : Array[ChpxRun], para_text : String, para_cp_s
     let state = if base_char_props.length() > 0 {
       char_props_from_decoded(base_char_props)
     } else {
-      CharState::{
-        bold: false, italic: false, underline: 0, strike: false, double_strike: false,
-        font_size: 21, font_family_id: 0, font_family: "", color: 0, highlight: 0,
-        superscript: false, subscript: false, hidden: false,
-        small_caps: false, caps: false, outline: false, shadow: false,
-        emboss: false, imprint: false, spacing: 0, position_half_points: 0,
-        scale: 100, picture_offset: 0, rtl: false, bold_bi: false, italic_bi: false,
-        char_style_id: 0, is_ole2: false, is_data: false, is_object: false,
-      }
+      default_char_state()
     }
-    let resolved_font = if state.font_family_id > 0 {
-      match font_by_index(fonts, state.font_family_id) {
-        Some(font) => font.name
-        None => state.font_family
-      }
-    } else { state.font_family }
+    let resolved_font = resolve_font_name(state, fonts)
     let final_state = CharState::{
       bold: state.bold, italic: state.italic, underline: state.underline,
       strike: state.strike, double_strike: state.double_strike,
