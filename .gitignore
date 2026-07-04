@@ -9,6 +9,7 @@ node_modules/
 
 # 排除的文件
 AGENTS.md
+serve.json
 *.lock
 package-lock.json
 
