@@ -1,5 +1,12 @@
-﻿///| WASM linear memory bridge for image extraction
+///| WASM linear memory bridge for image extraction
 ///| Extracts all images from a parsed document and returns JSON
+
+///| Allocate a buffer of the given size in MoonBit's managed heap.
+///| Returns the pointer to the data region (after the object header).
+///| JS can then write bytes directly at this pointer.
+pub fn alloc_input_buffer(size : Int) -> FixedArray[Byte] {
+  FixedArray::make(size, b'\x00')
+}
 
 ///| Extract all images from document data (WASM linear memory ABI)
 ///| Input: pointer to FixedArray[Byte] in linear memory

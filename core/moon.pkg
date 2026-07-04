@@ -78,6 +78,7 @@ options(
         "render_ms_doc",
         "extract_all_images_sync",
         "parse_ms_doc_to_html",
+        "alloc_input_buffer",
       ],
       "export-memory-name": "memory",
     },
