@@ -111,7 +111,7 @@
           streamCss = result.css || '';
           streamTotalBlocks = result.totalBlocks || 0;
           const offStr = result.offsets || '';
-          streamOffsets = offStr.length > 0 ? offStr.split(',').map(Number) : [];
+          streamOffsets = offStr.length > 0 ? offStr.split(',').map(Number).filter(n => !isNaN(n) && n >= 0) : [];
           streamChunks = [];
           streamReceived = 0;
           return;

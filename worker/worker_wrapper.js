@@ -39,7 +39,7 @@ self.onmessage = function(e) {
         const offSep = initResult.indexOf('|||OFFSETS|||');
         streamTotalBlocks = parseInt(initResult.substring(0, cssSep), 10);
         const css = initResult.substring(cssSep + 9, offSep);
-        const offsets = initResult.substring(offSep + 12);
+        const offsets = initResult.substring(offSep + 13);
         self.postMessage({ id, type, result: { totalBlocks: streamTotalBlocks, css, offsets } });
         autoStreamChunks(id);
         return;

@@ -18,7 +18,7 @@ pub fn worker_stream_init(input : FixedArray[Byte]) -> String {
     let offsets = StringBuilder::new()
     let mut first = true
     for asset in ctx.assets {
-      if asset.asset_type == "image" && asset.bytes.length() > 0 && asset.id.length() > 10 {
+      if asset.asset_type == "image" && asset.bytes.length() > 0 && asset.id.has_prefix("asset-img-") {
         if !first { offsets <+ "," }
         first = false
         offsets <+ "\{asset.id[10 : asset.id.length()]}"
