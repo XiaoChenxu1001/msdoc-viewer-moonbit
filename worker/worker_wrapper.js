@@ -1,17 +1,14 @@
 // worker_wrapper.js - Web Worker bridge for MoonBit compiled worker
-// Loaded as a Web Worker script; bridges postMessage to MoonBit exports
 
 import {
   worker_parse, worker_render, worker_parse_to_html,
   worker_extract_image, worker_extract_all_images,
   worker_stream_init, worker_stream_chunk, worker_stream_footer,
-  worker_stream_get_image, worker_stream_release,
+  worker_stream_get_offsets, worker_stream_release,
 } from '../_build/js/release/build/worker/worker.js';
 
-// Streaming state
 let streamTotalBlocks = 0;
 let streamChunkSize = 50;
-let streamImageCount = 0;
 
 self.onmessage = function(e) {
   const { type, data, id, offset, start, count, chunkSize } = e.data;
@@ -34,20 +31,16 @@ self.onmessage = function(e) {
       case 'extractAllImages':
         result = worker_extract_all_images(data, JSON.stringify(offset));
         break;
-
-      // --- Streaming API ---
       case 'streamInit': {
         streamChunkSize = chunkSize || 50;
         const initResult = worker_stream_init(data);
-        // Format: "{total}|||CSS|||{css}|||IMAGES|||{count}"
+        // Format: "{total}|||CSS|||{css}|||OFFSETS|||{offsets}"
         const cssSep = initResult.indexOf('|||CSS|||');
-        const imgSep = initResult.indexOf('|||IMAGES|||');
+        const offSep = initResult.indexOf('|||OFFSETS|||');
         streamTotalBlocks = parseInt(initResult.substring(0, cssSep), 10);
-        const css = initResult.substring(cssSep + 9, imgSep);
-        streamImageCount = parseInt(initResult.substring(imgSep + 13), 10) || 0;
-        self.postMessage({ id, type, result: { totalBlocks: streamTotalBlocks, css, imageCount: streamImageCount } });
-
-        // Auto-stream: send chunks progressively
+        const css = initResult.substring(cssSep + 9, offSep);
+        const offsets = initResult.substring(offSep + 12);
+        self.postMessage({ id, type, result: { totalBlocks: streamTotalBlocks, css, offsets } });
         autoStreamChunks(id);
         return;
       }
@@ -59,8 +52,8 @@ self.onmessage = function(e) {
         result = worker_stream_footer();
         break;
       }
-      case 'streamGetImage': {
-        result = worker_stream_get_image(offset);
+      case 'streamGetOffsets': {
+        result = worker_stream_get_offsets();
         break;
       }
       case 'streamRelease': {
@@ -71,7 +64,6 @@ self.onmessage = function(e) {
         self.postMessage({ id, type, error: 'Unknown command: ' + type });
         return;
     }
-    // Check if MoonBit returned an error string
     if (typeof result === 'string' && result.startsWith('ERROR:')) {
       self.postMessage({ id, type, error: result.substring(6).trim() });
     } else {
@@ -82,31 +74,20 @@ self.onmessage = function(e) {
   }
 };
 
-// Progressive chunk streaming with idle-time yielding
 function autoStreamChunks(initId) {
   let currentStart = 0;
-  const chunkSize = streamChunkSize;
-
   function sendNextChunk() {
     if (currentStart >= streamTotalBlocks) {
       const footer = worker_stream_footer();
       self.postMessage({ id: initId, type: 'streamChunk', result: { done: true, footer } });
       return;
     }
-
-    const end = Math.min(currentStart + chunkSize, streamTotalBlocks);
+    const end = Math.min(currentStart + streamChunkSize, streamTotalBlocks);
     const html = worker_stream_chunk(currentStart, end - currentStart);
     currentStart = end;
-
-    self.postMessage({
-      id: initId,
-      type: 'streamChunk',
-      result: { html, current: currentStart, total: streamTotalBlocks }
-    });
-
+    self.postMessage({ id: initId, type: 'streamChunk', result: { html, current: currentStart, total: streamTotalBlocks } });
     setTimeout(sendNextChunk, 0);
   }
-
   setTimeout(sendNextChunk, 0);
 }
 

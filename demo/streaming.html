@@ -26,6 +26,8 @@
     .progress-bar { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
     .progress-bar .fill { height: 100%; background: #4CAF50; transition: width 0.1s; width: 0%; }
     .chunk-indicator { font-size: 11px; color: #999; margin-top: 4px; }
+    .image-status { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
+    .image-status.done { background: #4CAF50; }
   </style>
 </head>
 <body>
@@ -70,20 +72,16 @@
     let streamTotalBlocks = 0;
     let streamReceived = 0;
     let streamWaitingFor = null;
-    let streamImageCount = 0;
+    let streamData = null;
+    let streamOffsets = [];
 
     function initWorker() {
       worker = new Worker(new URL('../worker/worker_wrapper.js', import.meta.url), { type: 'module' });
 
       worker.onmessage = (e) => {
         const { id, type, result, error: err } = e.data;
-        if (type === 'ready') {
-          statusDot.className = 'status-dot ready';
-          statusText.textContent = 'Worker ready';
-          return;
-        }
+        if (type === 'ready') { statusDot.className = 'status-dot ready'; statusText.textContent = 'Worker ready'; return; }
 
-        // Handle streaming auto-chunks
         if (type === 'streamChunk' && result) {
           if (result.done) {
             streamChunks.push(result.footer || '');
@@ -92,33 +90,28 @@
             statusDot.className = 'status-dot ready';
             statusText.textContent = 'Loading images...';
             progressBar.style.display = 'none';
-            // Load images one at a time via streamGetImage, then release context
-            loadPreExtractedImages(streamImageCount).then(async () => {
+            loadImagesParallel(streamData, streamOffsets).then(async () => {
               await callWorker('streamRelease');
               statusText.textContent = 'Complete';
-              if (streamWaitingFor) {
-                streamWaitingFor.resolve();
-                streamWaitingFor = null;
-              }
+              if (streamWaitingFor) { streamWaitingFor.resolve(); streamWaitingFor = null; }
             });
           } else {
             streamChunks.push(result.html);
             streamReceived = result.current || streamReceived;
             renderStreamedContent();
             if (streamTotalBlocks > 0) {
-              const pct = Math.round((streamReceived / streamTotalBlocks) * 100);
-              progressFill.style.width = pct + '%';
+              progressFill.style.width = Math.round((streamReceived / streamTotalBlocks) * 100) + '%';
               chunkIndicator.textContent = `${streamReceived}/${streamTotalBlocks} blocks`;
             }
           }
           return;
         }
 
-        // Handle streamInit response
         if (type === 'streamInit' && result) {
           streamCss = result.css || '';
           streamTotalBlocks = result.totalBlocks || 0;
-          streamImageCount = result.imageCount || 0;
+          const offStr = result.offsets || '';
+          streamOffsets = offStr.length > 0 ? offStr.split(',').map(Number) : [];
           streamChunks = [];
           streamReceived = 0;
           return;
@@ -127,20 +120,10 @@
         const p = pending.get(id);
         if (p) {
           pending.delete(id);
-          if (err) {
-            console.error(`[Worker] ${type}#${id} ERROR:`, err);
-            p.reject(new Error(err));
-          } else {
-            p.resolve(result);
-          }
+          if (err) { p.reject(new Error(err)); } else { p.resolve(result); }
         }
       };
-
-      worker.onerror = (e) => {
-        statusDot.className = 'status-dot';
-        statusText.textContent = 'Worker error';
-        console.error('Worker error:', e);
-      };
+      worker.onerror = (e) => { statusDot.className = 'status-dot'; statusText.textContent = 'Error'; console.error(e); };
     }
 
     function callWorker(type, data, extra = {}) {
@@ -153,82 +136,52 @@
 
     function waitForReady() {
       return new Promise((resolve) => {
-        const check = (e) => {
-          if (e.data.type === 'ready') {
-            worker.removeEventListener('message', check);
-            resolve();
-          }
-        };
+        const check = (e) => { if (e.data.type === 'ready') { worker.removeEventListener('message', check); resolve(); } };
         worker.addEventListener('message', check);
       });
     }
 
     function renderStreamedContent() {
-      const html = streamChunks.join('');
-      viewer.innerHTML = '<style>' + streamCss + '</style>' + html;
+      viewer.innerHTML = '<style>' + streamCss + '</style>' + streamChunks.join('');
     }
 
-    async function loadPreExtractedImages(imageCount) {
-      if (imageCount === 0) return;
+    async function loadImagesParallel(data, assetOffsets) {
       const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-      if (placeholderEls.length === 0) return;
-
-      console.log(`[Stream] Loading ${imageCount} pre-extracted images for ${placeholderEls.length} placeholders`);
-      let assetIdx = 0;
-      let replaced = 0;
-
-      // Iterate through assets, find non-placeholder images, replace placeholders in DOM order
-      for (let i = 0; i < imageCount + placeholderEls.length; i++) {
+      if (placeholderEls.length === 0 || assetOffsets.length === 0) return;
+      let loaded = 0;
+      for (let i = 0; i < placeholderEls.length; i++) {
         try {
-          const dataUrl = await callWorker('streamGetImage', null, { offset: assetIdx });
-          if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml')) {
-            // Find the next placeholder in DOM and replace it
-            if (replaced < placeholderEls.length) {
-              placeholderEls[replaced].src = dataUrl;
-              placeholderEls[replaced].removeAttribute('data-placeholder');
-              replaced++;
-            }
+          const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
+          if (offset < 0) { loaded++; continue; }
+          const result = await callWorker('extractImage', data, { offset });
+          if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
+            placeholderEls[i].src = result;
+            placeholderEls[i].removeAttribute('data-placeholder');
           }
-          assetIdx++;
-          if (replaced >= placeholderEls.length) break;
-        } catch (e) {
-          console.error(`[Stream] Image ${assetIdx} failed:`, e);
-          assetIdx++;
-        }
+          loaded++;
+          chunkIndicator.textContent = `Loading images... ${loaded}/${placeholderEls.length}`;
+          await new Promise(r => setTimeout(r, 0));
+        } catch (e) { loaded++; }
       }
-      console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} placeholder images`);
-      chunkIndicator.textContent = `${replaced} images loaded`;
+      chunkIndicator.textContent = `${loaded} images loaded`;
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault(); dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files[0]) loadFile(e.target.files[0]);
-    });
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); });
 
     async function loadFile(file) {
       try {
-        error.style.display = 'none';
-        info.style.display = 'none';
-        viewer.innerHTML = '';
-        streamChunks = [];
-        streamCss = '';
-        streamTotalBlocks = 0;
-        streamReceived = 0;
-        streamImageCount = 0;
+        error.style.display = 'none'; info.style.display = 'none'; viewer.innerHTML = '';
+        streamChunks = []; streamCss = ''; streamTotalBlocks = 0; streamReceived = 0; streamOffsets = [];
 
-        if (!worker) {
-          initWorker();
-          await waitForReady();
-        }
+        if (!worker) { initWorker(); await waitForReady(); }
 
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
+        streamData = data;
 
         statusDot.className = 'status-dot working';
         statusText.textContent = 'Parsing document...';
@@ -237,28 +190,20 @@
 
         const t0 = performance.now();
         await callWorker('streamInit', data, { chunkSize: 30 });
-
-        await new Promise((resolve) => {
-          streamWaitingFor = { resolve };
-        });
-
+        await new Promise((resolve) => { streamWaitingFor = { resolve }; });
         const totalTime = performance.now() - t0;
 
         info.style.display = 'block';
         info.innerHTML =
           '<strong>Streaming Parse Results</strong><br>' +
           'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
-          'Total blocks: ' + streamTotalBlocks + '<br>' +
-          'Images: ' + streamImageCount + '<br>' +
-          'Total time: ' + totalTime.toFixed(1) + ' ms';
-
+          'Blocks: ' + streamTotalBlocks + '<br>' +
+          'Images: ' + streamOffsets.length + '<br>' +
+          'Time: ' + totalTime.toFixed(1) + ' ms';
       } catch (err) {
-        statusDot.className = 'status-dot';
-        statusText.textContent = 'Error';
-        error.style.display = 'block';
-        error.textContent = 'Error: ' + err.message;
-        viewer.innerHTML = '';
-        console.error(err);
+        statusDot.className = 'status-dot'; statusText.textContent = 'Error';
+        error.style.display = 'block'; error.textContent = 'Error: ' + err.message;
+        viewer.innerHTML = ''; console.error(err);
       }
     }
 

@@ -3,18 +3,9 @@
 
 ///| Parse MS-DOC and return a ParseContext for chunk-based rendering
 ///| Phase 1: does ALL parsing work (CFB, FIB, styles, paragraphs, blocks)
-///| Also pre-extracts all images to avoid postMessage data transfer issues
 ///| Phase 2: render_chunk() / render_footer_html() consume the context
 pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
   let result = parse_ms_doc(input)
-  // Pre-extract all images so placeholder SVGs are replaced with real data URLs
-  let deferred = DeferredParseResult::{
-    result,
-    data_bytes: input,
-    image_config: default_image_config(),
-    image_cache: Map([], capacity=16),
-  }
-  let processed_assets = extract_all_deferred_images(deferred)
   ParseContext::{
     blocks: result.blocks,
     text: result.text,
@@ -26,7 +17,7 @@ pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
     footnotes: result.footnotes,
     endnotes: result.endnotes,
     comments: result.comments,
-    assets: processed_assets,
+    assets: result.assets,
     meta: result.meta,
     fonts: result.fonts,
     styles: result.styles,
