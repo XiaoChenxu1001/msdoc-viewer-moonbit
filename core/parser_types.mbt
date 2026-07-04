@@ -230,6 +230,26 @@ pub struct Footnote {
   is_endnote : Bool
 }
 
+///| Streaming parse context — holds all parsed data for chunk-based rendering
+///| Created by parse_init(), consumed by render_chunk() and render_footer_html()
+pub struct ParseContext {
+  blocks : Array[Block]
+  text : String
+  paragraphs : Array[ParagraphInfo]
+  textboxes : Array[TextBox]
+  headers : Array[HeaderFooter]
+  footers : Array[HeaderFooter]
+  sections : Array[SectionProperties]
+  footnotes : Array[Footnote]
+  endnotes : Array[Footnote]
+  comments : Array[Comment]
+  assets : Array[Asset]
+  meta : Option[ParseMeta]
+  fonts : Array[FontInfo]
+  styles : Array[StyleInfo]
+  warnings : Array[String]
+}
+
 ///| Render result
 pub struct RenderResult {
   html : String
