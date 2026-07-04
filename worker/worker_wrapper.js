@@ -4,7 +4,7 @@ import {
   worker_parse, worker_render, worker_parse_to_html,
   worker_extract_image, worker_extract_all_images,
   worker_stream_init, worker_stream_chunk, worker_stream_footer,
-  worker_stream_get_offsets, worker_stream_release,
+  worker_stream_get_offsets, worker_stream_extract_image, worker_stream_release,
 } from '../_build/js/release/build/worker/worker.js';
 
 let streamTotalBlocks = 0;
@@ -58,6 +58,10 @@ self.onmessage = function(e) {
       }
       case 'streamRelease': {
         result = worker_stream_release();
+        break;
+      }
+      case 'streamExtractImage': {
+        result = worker_stream_extract_image(offset || 0);
         break;
       }
       default:

@@ -57,6 +57,26 @@ pub fn worker_stream_get_offsets() -> String {
   result
 }
 
+///| Extract a single image from the stored ParseContext
+///| Processes raw image bytes using process_raw_image_asset
+///| Returns the data_url string for the image at the given asset index
+pub fn worker_stream_extract_image(asset_index : Int) -> String {
+  if _ctx_holder.length() == 0 { return "" }
+  let ctx = _ctx_holder[0]
+  if asset_index < 0 || asset_index >= ctx.assets.length() { return "" }
+  let asset = ctx.assets[asset_index]
+  // If already processed (not placeholder), return directly
+  if asset.data_url.length() > 0 && !asset.data_url.has_prefix("data:image/svg+xml") {
+    return asset.data_url
+  }
+  // If has raw bytes, process them
+  if asset.bytes.length() > 0 {
+    let processed = @core.process_raw_image_asset(asset)
+    return processed.data_url
+  }
+  ""
+}
+
 ///| Release context after all work is done
 pub fn worker_stream_release() -> String {
   while _ctx_holder.length() > 0 { ignore(_ctx_holder.unsafe_pop()) }
