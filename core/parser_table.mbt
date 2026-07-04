@@ -17,11 +17,7 @@ pub fn build_blocks(paragraphs : Array[ParagraphInfo], styles : StyleCollection)
     let para = paragraphs[index]
     let depth = get_para_table_depth(para)
     if depth <= 0 {
-      blocks.push(Block::{
-        paragraph: Some(para),
-        table: None,
-        attachments: None,
-      })
+      blocks.push(Block::Paragraph(para))
       index += 1
       continue
     }
@@ -31,11 +27,7 @@ pub fn build_blocks(paragraphs : Array[ParagraphInfo], styles : StyleCollection)
       index += 1
     }
     let table = build_table_block(table_paras, depth, styles)
-    blocks.push(Block::{
-      paragraph: None,
-      table: Some(table),
-      attachments: None,
-    })
+    blocks.push(Block::Table(table))
   }
   blocks
 }

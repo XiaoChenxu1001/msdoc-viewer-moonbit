@@ -188,34 +188,25 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
   // Track textbox rendering state across paragraphs
   let mut textbox_render_index = 0
   for block in parsed.blocks {
-    match block.attachments {
-      Some(items) => {
+    match block {
+      Block::Attachments(items) => {
         html <+ "\{render_attachments_html(items)}"
       }
-      None => {
-        match block.table {
-          Some(table) => {
-            html <+ "\{render_table_html(table)}"
+      Block::Table(table) => {
+        html <+ "\{render_table_html(table)}"
+      }
+      Block::Paragraph(para) => {
+        // Check if this is a textbox anchor paragraph (contains MERGEFORMAT field)
+        let is_textbox_anchor = para.text.contains("MERGEFORMAT") && parsed.textboxes.length() > 0
+        if is_textbox_anchor && textbox_render_index < parsed.textboxes.length() {
+          // Render the next textbox content
+          let tb = parsed.textboxes[textbox_render_index]
+          if tb.text.length() > 0 {
+            html <+ "<div class=\"msdoc-textbox\">\{escape_html_text(tb.text)}</div>"
           }
-          None => {
-            match block.paragraph {
-              Some(para) => {
-                // Check if this is a textbox anchor paragraph (contains MERGEFORMAT field)
-                let is_textbox_anchor = para.text.contains("MERGEFORMAT") && parsed.textboxes.length() > 0
-                if is_textbox_anchor && textbox_render_index < parsed.textboxes.length() {
-                  // Render the next textbox content
-                  let tb = parsed.textboxes[textbox_render_index]
-                  if tb.text.length() > 0 {
-                    html <+ "<div class=\"msdoc-textbox\">\{escape_html_text(tb.text)}</div>"
-                  }
-                  textbox_render_index += 1
-                } else {
-                  html <+ "\{render_paragraph_html(para, false)}"
-                }
-              }
-              None => ignore(block)
-            }
-          }
+          textbox_render_index += 1
+        } else {
+          html <+ "\{render_paragraph_html(para, false)}"
         }
       }
     }

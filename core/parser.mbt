@@ -725,11 +725,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   }
 
   if trailing_attachments.length() > 0 {
-    blocks.push(Block::{
-      paragraph: None,
-      table: None,
-      attachments: Some(trailing_attachments),
-    })
+    blocks.push(Block::Attachments(trailing_attachments))
   }
 
   // Extract EPRINT images from OLE objects (Visio drawings, etc.)

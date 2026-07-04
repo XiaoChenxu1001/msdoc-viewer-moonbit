@@ -1,4 +1,4 @@
-﻿///| 白盒单元测试 — 直接测试核心解析/渲染内部函数
+///| 白盒单元测试 — 直接测试核心解析/渲染内部函数
 
 // ==================== HTML 转义 ====================
 
@@ -290,13 +290,9 @@ test "block with paragraph" {
     border_top: 0, border_left: 0, border_bottom: 0,
     border_right: 0, outline_level: 0, shading: 0,
   }
-  let block = Block::{
-    paragraph: Some(para),
-    table: None,
-    attachments: None,
-  }
+  let block = Block::Paragraph(para)
   match block {
-    { paragraph: Some(p), .. } => assert_eq(p.text, "abc")
+    Block::Paragraph(p) => assert_eq(p.text, "abc")
     _ => inspect(false, content="true")
   }
 }

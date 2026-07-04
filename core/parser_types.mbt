@@ -107,10 +107,10 @@ pub struct TableBlock {
 }
 
 ///| Block - either a paragraph, a table, or trailing attachments
-pub struct Block {
-  paragraph : Option[ParagraphInfo]
-  table : Option[TableBlock]
-  attachments : Option[Array[Asset]]
+pub enum Block {
+  Paragraph(ParagraphInfo)
+  Table(TableBlock)
+  Attachments(Array[Asset])
 }
 
 ///| Parse result
