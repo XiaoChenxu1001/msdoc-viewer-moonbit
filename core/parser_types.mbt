@@ -46,6 +46,13 @@ pub struct RenderRun {
   is_attachment : Bool
   attachment_name : String
   form_field : Option[FormFieldData]
+  asset_index : Int  // index into ParseContext.assets, -1 if not an image/attachment
+}
+
+///| Chunk render result with asset indices for concurrent image processing
+pub struct ChunkResult {
+  html : String
+  asset_indices : Array[Int]
 }
 
 ///| Paragraph info with formatting
@@ -248,6 +255,11 @@ pub struct ParseContext {
   fonts : Array[FontInfo]
   styles : Array[StyleInfo]
   warnings : Array[String]
+  ///| Cache for processed image data URLs (asset_index → processed data_url)
+  ///| Populated lazily during render_chunk() calls
+  image_cache : Map[Int, String]
+  ///| Precomputed textbox block indices: block_index → textbox_index (-1 if not a textbox anchor)
+  textbox_block_indices : Array[Int]
 }
 
 ///| Render result

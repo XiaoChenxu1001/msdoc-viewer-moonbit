@@ -268,7 +268,7 @@ test "render run creation" {
     is_line_break: false, is_page_break: false,
     is_image: false, image_data_url: "", image_width: 0,
     image_height: 0, is_attachment: false, attachment_name: "",
-    form_field: None,
+    form_field: None, asset_index: -1,
   }
   assert_eq(run.text, "test")
   assert_eq(run.bold, true)

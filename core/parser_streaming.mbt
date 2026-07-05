@@ -1,14 +1,33 @@
 ///| Streaming parse API for incremental rendering
 ///| Splits parsing from rendering to enable chunk-based HTML output
 
+///| Precompute textbox block indices: block_index → textbox_index (-1 if not anchor)
+fn precompute_textbox_indices(blocks : Array[Block], textboxes : Array[TextBox]) -> Array[Int] {
+  let indices = Array::new()
+  let mut tidx = 0
+  for i in 0..<blocks.length() {
+    match blocks[i] {
+      Block::Paragraph(para) => {
+        if para.text.contains("MERGEFORMAT") && textboxes.length() > 0 && tidx < textboxes.length() {
+          indices.push(tidx)
+          tidx += 1
+        } else {
+          indices.push(-1)
+        }
+      }
+      _ => indices.push(-1)
+    }
+  }
+  indices
+}
+
 ///| Parse MS-DOC and return a ParseContext for chunk-based rendering
 ///| Phase 1: does ALL parsing work (CFB, FIB, styles, paragraphs, blocks)
-///| Also pre-processes all images so they're ready during chunk rendering
+///| Images are NOT processed during init — they're processed lazily during render_chunk()
 ///| Phase 2: render_chunk() / render_footer_html() consume the context
 pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
   let result = parse_ms_doc(input)
-  // Pre-process all images with dedup support — images ready for chunk rendering
-  let processed_assets = preload_all_images(result)
+  let textbox_indices = precompute_textbox_indices(result.blocks, result.textboxes)
   ParseContext::{
     blocks: result.blocks,
     text: result.text,
@@ -20,36 +39,52 @@ pub fn parse_init(input : FixedArray[Byte]) -> ParseContext raise {
     footnotes: result.footnotes,
     endnotes: result.endnotes,
     comments: result.comments,
-    assets: processed_assets,
+    assets: result.assets,
     meta: result.meta,
     fonts: result.fonts,
     styles: result.styles,
     warnings: result.warnings,
+    image_cache: Map([], capacity=16),
+    textbox_block_indices: textbox_indices,
   }
+}
+
+///| Get processed image data URL from cache, or process on-demand
+///| This is the lazy image processing — images are processed when first accessed
+pub fn get_or_process_image(ctx : ParseContext, asset_index : Int) -> String {
+  if asset_index < 0 || asset_index >= ctx.assets.length() { return "" }
+  // Check cache first
+  match ctx.image_cache.get(asset_index) {
+    Some(cached) => return cached
+    None => ()
+  }
+  let asset = ctx.assets[asset_index]
+  // If already has real data URL (not placeholder), return as-is
+  if asset.data_url.length() > 0 && !asset.data_url.has_prefix("data:image/svg+xml") {
+    ctx.image_cache.set(asset_index, asset.data_url)
+    return asset.data_url
+  }
+  // If has raw bytes, process them lazily
+  if asset.bytes.length() > 0 {
+    let processed = process_raw_image_asset(asset)
+    ctx.image_cache.set(asset_index, processed.data_url)
+    return processed.data_url
+  }
+  // Return original (placeholder or empty)
+  asset.data_url
 }
 
 ///| Render a chunk of blocks to HTML fragment
 ///| start: block index to start from (0-based)
 ///| count: number of blocks to render
-///| Returns: HTML string fragment (no wrapper div)
-pub fn render_chunk(ctx : ParseContext, start : Int, count : Int) -> String {
+///| Returns: ChunkResult with HTML and asset indices for concurrent image processing
+pub fn render_chunk(ctx : ParseContext, start : Int, count : Int) -> ChunkResult {
   let sb = StringBuilder::new()
+  let asset_indices = Array::new()
   let block_count = ctx.blocks.length()
   let end_idx = if start + count > block_count { block_count } else { start + count }
-  let mut textbox_render_index = 0
+  // Use precomputed textbox indices instead of scanning all previous blocks
   for i in start..<end_idx {
-    if i == start {
-      for j in 0..<i {
-        match ctx.blocks[j] {
-          Block::Paragraph(para) => {
-            if para.text.contains("MERGEFORMAT") && ctx.textboxes.length() > 0 {
-              textbox_render_index += 1
-            }
-          }
-          _ => ()
-        }
-      }
-    }
     match ctx.blocks[i] {
       Block::Attachments(items) => {
         sb <+ "\{render_attachments_html(items)}"
@@ -58,20 +93,29 @@ pub fn render_chunk(ctx : ParseContext, start : Int, count : Int) -> String {
         sb <+ "\{render_table_html(table)}"
       }
       Block::Paragraph(para) => {
-        let is_textbox_anchor = para.text.contains("MERGEFORMAT") && ctx.textboxes.length() > 0
-        if is_textbox_anchor && textbox_render_index < ctx.textboxes.length() {
-          let tb = ctx.textboxes[textbox_render_index]
+        // Use precomputed textbox index
+        let textbox_idx = if i < ctx.textbox_block_indices.length() { ctx.textbox_block_indices[i] } else { -1 }
+        if textbox_idx >= 0 && textbox_idx < ctx.textboxes.length() {
+          let tb = ctx.textboxes[textbox_idx]
           if tb.text.length() > 0 {
             sb <+ "<div class=\"msdoc-textbox\">\{escape_html_text(tb.text)}</div>"
           }
-          textbox_render_index += 1
         } else {
+          // Collect asset indices from image runs in this paragraph
+          for run in para.runs {
+            if run.is_image && run.asset_index >= 0 {
+              let is_placeholder = run.image_data_url.has_prefix("data:image/svg+xml")
+              if is_placeholder {
+                asset_indices.push(run.asset_index)
+              }
+            }
+          }
           sb <+ "\{render_paragraph_html(para, false)}"
         }
       }
     }
   }
-  sb.to_string()
+  ChunkResult::{ html: sb.to_string(), asset_indices }
 }
 
 ///| Render footer content: headers, footers, footnotes, endnotes, comments

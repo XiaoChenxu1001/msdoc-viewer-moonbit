@@ -616,7 +616,6 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
   // Build paragraphs with formatting
   // JS: uses PAPX runs directly as paragraph boundaries (splitParagraphRanges fallback)
   let paragraphs = Array::new()
-  let mut chpx_cursor = 0
   if papx_runs.length() > 0 {
     // Use PAPX runs as paragraph boundaries (faithful JS approach)
     let full_len = String::length(clean_full_text)
@@ -640,8 +639,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       let para_text = clean_full_text[cp_start : cp_end].to_owned()
       let papx_result = resolve_papx_run(run, styles, style_cache)
       let para_state = papx_result.para_state
-      let (segments, new_cursor) = build_char_segments(chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, fonts, styles, chpx_cursor, style_cache)
-      chpx_cursor = new_cursor
+      let segments = build_char_segments(chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, fonts, styles, style_cache)
       let runs = process_inline_fields(segments, resolver)
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers(para_text)
@@ -683,8 +681,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
         let para_text = clean_full_text[start : i].to_owned()
         let papx_result = find_papx_state_and_props(papx_runs, start, i, styles, style_cache)
         let para_state = papx_result.para_state
-        let (segments, new_cursor) = build_char_segments(chpx_runs, para_text, start, i, papx_result.resolved_char_props, fonts, styles, chpx_cursor, style_cache)
-        chpx_cursor = new_cursor
+        let segments = build_char_segments(chpx_runs, para_text, start, i, papx_result.resolved_char_props, fonts, styles, style_cache)
       let runs = process_inline_fields(segments, resolver)
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers_and_trim(para_text)
@@ -699,7 +696,7 @@ pub fn parse_ms_doc(input : FixedArray[Byte]) -> MsDocParseResult raise {
       let para_text = clean_full_text[start : String::length(clean_full_text)].to_owned()
       let papx_result = find_papx_state_and_props(papx_runs, start, String::length(clean_full_text), styles, style_cache)
       let para_state = papx_result.para_state
-      let (segments, _) = build_char_segments(chpx_runs, para_text, start, String::length(clean_full_text), papx_result.resolved_char_props, fonts, styles, chpx_cursor, style_cache)
+      let segments = build_char_segments(chpx_runs, para_text, start, String::length(clean_full_text), papx_result.resolved_char_props, fonts, styles, style_cache)
       let runs = process_inline_fields(segments, resolver)
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers_and_trim(para_text)

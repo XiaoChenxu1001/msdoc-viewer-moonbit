@@ -235,7 +235,6 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
 ///| Phase: Paragraph loop only (given pre-parsed intermediate state)
 pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[ParagraphInfo] {
   let paragraphs = Array::new()
-  let mut chpx_cursor = 0
   if intermediate.papx_runs.length() > 0 {
     let mut ri = 0
     while ri < intermediate.papx_runs.length() {
@@ -256,8 +255,7 @@ pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[Paragraph
       let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
       let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
       let para_state = papx_result.para_state
-      let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
-      chpx_cursor = new_cursor
+      let segments = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, intermediate.style_cache)
       let runs = process_inline_fields(segments, intermediate.resolver)
       let merged_runs = merge_adjacent_runs(runs)
       let clean_para_text = strip_field_markers(para_text)
@@ -480,7 +478,6 @@ pub fn bench_resolve_all_papx(intermediate : ParseIntermediate) -> Int {
 ///| Phase: Only build_char_segments for all paragraphs
 pub fn bench_build_all_segments(intermediate : ParseIntermediate) -> Int {
   let mut total_segments = 0
-  let mut chpx_cursor = 0
   for run in intermediate.papx_runs {
     let cp_start = run.cp_start
     let cp_end = if run.cp_end > String::length(intermediate.clean_full_text) {
@@ -491,8 +488,7 @@ pub fn bench_build_all_segments(intermediate : ParseIntermediate) -> Int {
     if cp_start >= cp_end { continue }
     let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
     let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
-    let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
-    chpx_cursor = new_cursor
+    let segments = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, intermediate.style_cache)
     total_segments += segments.length()
   }
   total_segments
@@ -501,7 +497,6 @@ pub fn bench_build_all_segments(intermediate : ParseIntermediate) -> Int {
 ///| Phase: Only process_inline_fields for all paragraphs (with pre-built segments)
 pub fn bench_process_all_fields(intermediate : ParseIntermediate) -> Int {
   let mut total_runs = 0
-  let mut chpx_cursor = 0
   for run in intermediate.papx_runs {
     let cp_start = run.cp_start
     let cp_end = if run.cp_end > String::length(intermediate.clean_full_text) {
@@ -512,8 +507,7 @@ pub fn bench_process_all_fields(intermediate : ParseIntermediate) -> Int {
     if cp_start >= cp_end { continue }
     let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
     let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
-    let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
-    chpx_cursor = new_cursor
+    let segments = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, intermediate.style_cache)
     let runs = process_inline_fields(segments, intermediate.resolver)
     total_runs += runs.length()
   }

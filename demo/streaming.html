@@ -89,11 +89,48 @@
       });
     }
 
+    // Parse ChunkResult format: "{asset_count}|||{html}|||{idx0},{idx1},..."
+    function parseChunkResult(raw) {
+      const offSep = raw.indexOf('|||');
+      if (offSep < 0) return { assetCount: 0, html: raw, assetIndices: [] };
+      const assetCount = parseInt(raw.substring(0, offSep), 10) || 0;
+      const rest = raw.substring(offSep + 3);
+      const idxSep = rest.indexOf('|||');
+      if (idxSep < 0) return { assetCount, html: rest, assetIndices: [] };
+      const html = rest.substring(0, idxSep);
+      const idxStr = rest.substring(idxSep + 3);
+      const assetIndices = idxStr.length > 0 ? idxStr.split(',').map(Number) : [];
+      return { assetCount, html, assetIndices };
+    }
+
+    // Process a single image by asset index, replace DOM element
+    async function processImage(assetIndex) {
+      try {
+        const dataUrl = await callWorker('streamExtractImage', null, { offset: assetIndex });
+        if (dataUrl && dataUrl.startsWith('data:') && !dataUrl.includes('svg+xml')) {
+          const img = viewer.querySelector(`img[data-asset-index="${assetIndex}"]`);
+          if (img) {
+            img.src = dataUrl;
+            img.removeAttribute('data-placeholder');
+            img.removeAttribute('data-asset-index');
+            replacedCount++;
+            chunkIndicator.textContent = `Rendering... | ${replacedCount}/${totalImages} images`;
+          }
+        }
+      } catch (e) {
+        console.error(`[Stream] Failed to process image ${assetIndex}:`, e);
+      }
+    }
+
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
     fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+    // Counters
+    let replacedCount = 0;
+    let totalImages = 0;
 
     async function loadFile(file) {
       try {
@@ -108,25 +145,36 @@
 
         const t0 = performance.now();
 
-        // Phase 1: Parse (streamInit stores ParseContext in worker)
+        // Phase 1: Parse
         const initResult = await callWorker('streamInit', data, { chunkSize: 30 });
         const css = initResult.css || '';
         const totalBlocks = initResult.totalBlocks || 0;
-        const imageCount = initResult.imageCount || 0;
+        const offsets = initResult.offsets || '';
+        totalImages = offsets.length > 0 ? offsets.split(',').length : 0;
         const parseTime = performance.now() - t0;
 
         statusText.textContent = 'Rendering chunks...';
         viewer.innerHTML = '<style>' + css + '</style>';
 
-        // Phase 2: Progressive chunk rendering
+        // Phase 2: Progressive chunk rendering with concurrent image processing
         const CHUNK_SIZE = 30;
+        const imagePromises = [];
         for (let start = 0; start < totalBlocks; start += CHUNK_SIZE) {
           const count = Math.min(CHUNK_SIZE, totalBlocks - start);
-          const html = await callWorker('streamChunk', null, { start, count });
+          const raw = await callWorker('streamChunk', null, { start, count });
+          const { html, assetIndices } = parseChunkResult(raw);
+
+          // Append HTML to DOM
           const wrapper = document.createElement('div');
           wrapper.innerHTML = html;
           while (wrapper.firstChild) { viewer.appendChild(wrapper.firstChild); }
-          chunkIndicator.textContent = `${Math.min(start + count, totalBlocks)}/${totalBlocks} blocks`;
+
+          // Queue image processing for this chunk's assets
+          for (const idx of assetIndices) {
+            imagePromises.push(processImage(idx));
+          }
+
+          chunkIndicator.textContent = `Rendering ${Math.min(start + count, totalBlocks)}/${totalBlocks} blocks...`;
           await new Promise(r => setTimeout(r, 0));
         }
 
@@ -136,26 +184,11 @@
         footWrapper.innerHTML = footer;
         while (footWrapper.firstChild) { viewer.appendChild(footWrapper.firstChild); }
 
-        // Phase 4: Get ALL image data URLs in one batch (no per-image calls)
-        statusText.textContent = 'Loading images...';
-        const allImagesResult = await callWorker('streamGetAllImages');
-        // Parse batch result: "count|||url0|||url1|||..."
-        const imgParts = allImagesResult.split('|||');
-        const imageCount2 = parseInt(imgParts[0], 10);
-        const imageUrls = imgParts.slice(1);
-        console.log(`[Stream] ${imageCount2} pre-processed images ready`);
-
-        // Apply images to DOM placeholders in order
-        const placeholderEls = viewer.querySelectorAll('img[data-placeholder="true"]');
-        let replaced = 0;
-        for (let i = 0; i < placeholderEls.length && i < imageUrls.length; i++) {
-          if (imageUrls[i] && imageUrls[i].startsWith('data:')) {
-            placeholderEls[i].src = imageUrls[i];
-            placeholderEls[i].removeAttribute('data-placeholder');
-            replaced++;
-          }
+        // Phase 4: Wait for all image processing to complete
+        if (imagePromises.length > 0) {
+          statusText.textContent = 'Loading images...';
+          await Promise.all(imagePromises);
         }
-        console.log(`[Stream] Replaced ${replaced}/${placeholderEls.length} images`);
 
         // Phase 5: Release context
         await callWorker('streamRelease');
@@ -163,14 +196,15 @@
         const totalTime = performance.now() - t0;
         statusDot.className = 'status-dot ready';
         statusText.textContent = 'Complete';
-        chunkIndicator.textContent = `${replaced} images loaded`;
+        chunkIndicator.textContent = `${replacedCount}/${totalImages} images loaded`;
 
         info.style.display = 'block';
         info.innerHTML =
           '<strong>Streaming Results</strong><br>' +
           'File: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)<br>' +
           'Blocks: ' + totalBlocks + '<br>' +
-          'Images: ' + replaced + '<br>' +
+          'Images: ' + totalImages + ' (concurrent loading)<br>' +
+          'Parse: ' + parseTime.toFixed(0) + ' ms<br>' +
           'Total: ' + totalTime.toFixed(0) + ' ms';
 
       } catch (err) {

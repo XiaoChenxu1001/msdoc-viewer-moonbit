@@ -476,10 +476,11 @@ fn render_run_html(run : RenderRun) -> String {
         // Fall through to regular img rendering
       }
       let placeholder_attr = if is_placeholder { " data-placeholder=\"true\"" } else { "" }
+      let asset_idx_attr = if is_placeholder && run.asset_index >= 0 { " data-asset-index=\"\{run.asset_index}\"" } else { "" }
       let size_attr = if run.image_width > 0 && run.image_height > 0 {
         " width=\"\{run.image_width}\" height=\"\{run.image_height}\""
       } else { "" }
-      let img = "<img src=\"\{run.image_data_url}\" class=\"msdoc-image\" alt=\"image\" style=\"display:inline-block;vertical-align:middle;max-width:100%;height:auto;\"\{size_attr}\{placeholder_attr}>"
+      let img = "<img src=\"\{run.image_data_url}\" class=\"msdoc-image\" alt=\"image\" style=\"display:inline-block;vertical-align:middle;max-width:100%;height:auto;\"\{size_attr}\{placeholder_attr}\{asset_idx_attr}>"
       if run.href.length() > 0 {
         return "<a class=\"msdoc-link\" href=\"\{escape_html_text(run.href)}\" target=\"_blank\" rel=\"noreferrer noopener\">\{img}</a>"
       }
@@ -533,20 +534,51 @@ fn render_run_html(run : RenderRun) -> String {
   let is_strike = run.strike || run.double_strike
   let is_underline = run.underline > 0 && underline_name(run.underline) != "none" && underline_name(run.underline) != "hidden"
 
-  // Layer 1: Try predefined CSS class for common formatting combos
-  let mut used_class = ""
-  if is_bold && is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
-    used_class = "msdoc-bi"
-  } else if is_bold && !is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
-    used_class = "msdoc-b"
-  } else if is_italic && !is_bold && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
-    used_class = "msdoc-i"
+  // Layer 1: Compose CSS classes for boolean formatting flags
+  let classes = StringBuilder::new()
+  if is_bold && is_italic {
+    classes <+ "msdoc-bi"
+  } else if is_bold {
+    classes <+ "msdoc-b"
+  } else if is_italic {
+    classes <+ "msdoc-i"
+  }
+  if is_underline {
+    let ul_name = underline_name(run.underline)
+    if ul_name == "double" || ul_name == "wavy-double" {
+      classes <+ " msdoc-u-d"
+    } else if ul_name == "dotted" || ul_name == "dot-dash" || ul_name == "dot-dot-dash" || ul_name == "dotted-heavy" || ul_name == "dot-dash-heavy" || ul_name == "dot-dot-dash-heavy" {
+      classes <+ " msdoc-u-t"
+    } else if ul_name == "dash" || ul_name == "dashed-heavy" || ul_name == "dash-long" || ul_name == "dash-long-heavy" {
+      classes <+ " msdoc-u-da"
+    } else if ul_name == "wave" || ul_name == "wavy-heavy" {
+      classes <+ " msdoc-u-w"
+    } else {
+      classes <+ " msdoc-u-s"
+    }
+  }
+  if is_strike {
+    classes <+ " msdoc-strike"
+  }
+  if run.small_caps {
+    classes <+ " msdoc-sc"
+  }
+  if run.caps {
+    classes <+ " msdoc-caps"
+  }
+  if run.superscript {
+    classes <+ " msdoc-super"
+  }
+  if run.subscript {
+    classes <+ " msdoc-sub"
   }
 
-  // Layer 2+3: Inline style for everything else
+  let used_class = classes.to_string()
+
+  // Layer 2: Numeric properties as CSS variables (font-size, font-family, color, background)
   let style = StringBuilder::new()
 
-  if used_class == "" {
+  if used_class.length() == 0 {
     // No class match — full inline style (original approach)
     if is_bold {
       style <+ "font-weight:700;"

@@ -146,19 +146,45 @@ struct CharSegment {
 }
 
 ///| Build character segments from CHPX runs (mirrors JS buildCharSegments)
-fn build_char_segments(chpx_runs : Array[ChpxRun], para_text : String, para_cp_start : Int, para_cp_end : Int, base_char_props : Array[DecodedProperty], fonts : FontsCollection, styles : StyleCollection, cursor : Int, style_cache : Map[Int, ResolvedStyle]) -> (Array[CharSegment], Int) {
+///| Binary search: find first index where chpx_runs[i].cp_end > para_cp_start
+fn bs_first_overlapping(chpx_runs : Array[ChpxRun], para_cp_start : Int) -> Int {
+  let mut lo = 0
+  let mut hi = chpx_runs.length()
+  while lo < hi {
+    let mid = (lo + hi) / 2
+    if chpx_runs[mid].cp_end <= para_cp_start {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  lo
+}
+
+///| Binary search: find first index where chpx_runs[i].cp_start >= para_cp_end
+fn bs_past_end(chpx_runs : Array[ChpxRun], para_cp_end : Int) -> Int {
+  let mut lo = 0
+  let mut hi = chpx_runs.length()
+  while lo < hi {
+    let mid = (lo + hi) / 2
+    if chpx_runs[mid].cp_start < para_cp_end {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  lo
+}
+
+fn build_char_segments(chpx_runs : Array[ChpxRun], para_text : String, para_cp_start : Int, para_cp_end : Int, base_char_props : Array[DecodedProperty], fonts : FontsCollection, styles : StyleCollection, style_cache : Map[Int, ResolvedStyle]) -> Array[CharSegment] {
   let segments : Array[CharSegment] = Array::new()
   let text_len = String::length(para_text)
-  // Cursor-based overlap collection — O(N+M) total across all paragraphs
-  // Skip runs that ended before this paragraph starts
+  // Binary search overlap collection — O(log N) per paragraph
   let overlapping : Array[ChpxRun] = Array::new()
-  let mut c = cursor
-  while c < chpx_runs.length() && chpx_runs[c].cp_end <= para_cp_start {
-    c += 1
-  }
-  // Collect runs that overlap this paragraph (runs may span multiple paragraphs)
-  let mut ci = c
-  while ci < chpx_runs.length() && chpx_runs[ci].cp_start < para_cp_end {
+  let first_idx = bs_first_overlapping(chpx_runs, para_cp_start)
+  let last_idx = bs_past_end(chpx_runs, para_cp_end)
+  let mut ci = first_idx
+  while ci < last_idx {
     if chpx_runs[ci].cp_end > para_cp_start {
       overlapping.push(chpx_runs[ci])
     }
@@ -310,7 +336,7 @@ fn build_char_segments(chpx_runs : Array[ChpxRun], para_text : String, para_cp_s
     })
   }
 
-  (segments, c)
+  segments
 }
 
 ///| Asset resolver for picture characters (mirrors JS createAssetResolver)
@@ -600,7 +626,7 @@ fn state_to_run(text : String, state : CharState, href : String) -> RenderRun {
     scale: state.scale, position_half_points: state.position_half_points,
     rtl: state.rtl, is_line_break: false, is_page_break: false,
     is_image: false, image_data_url: "", image_width: 0, image_height: 0,
-    is_attachment: false, attachment_name: "", form_field: None,
+    is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
   }
 }
 
@@ -672,7 +698,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 outline: last.outline, shadow: last.shadow,
                 emboss: last.emboss, imprint: last.imprint,
                 scale: last.scale, position_half_points: last.position_half_points,
-                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
               }
               ci += 1
               continue
@@ -690,7 +716,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
             outline: segment.state.outline, shadow: segment.state.shadow,
             emboss: segment.state.emboss, imprint: segment.state.imprint,
             scale: segment.state.scale, position_half_points: segment.state.position_half_points,
-            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
           }
           field_stack[top_idx].runs.push(new_run)
         } else {
@@ -711,7 +737,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 outline: last.outline, shadow: last.shadow,
                 emboss: last.emboss, imprint: last.imprint,
                 scale: last.scale, position_half_points: last.position_half_points,
-                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+                rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
               }
               ci += 1
               continue
@@ -729,7 +755,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
             outline: segment.state.outline, shadow: segment.state.shadow,
             emboss: segment.state.emboss, imprint: segment.state.imprint,
             scale: segment.state.scale, position_half_points: segment.state.position_half_points,
-            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+            rtl: segment.state.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
           })
         }
         ci += 1
@@ -817,7 +843,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
                 is_image: old_run.is_image, image_data_url: old_run.image_data_url,
                 image_width: old_run.image_width, image_height: old_run.image_height,
                 is_attachment: old_run.is_attachment, attachment_name: old_run.attachment_name,
-                form_field: None,
+                form_field: None, asset_index: -1,
               }
             }
             ri += 1
@@ -863,7 +889,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               is_image: old_run.is_image, image_data_url: old_run.image_data_url,
               image_width: old_run.image_width, image_height: old_run.image_height,
               is_attachment: old_run.is_attachment, attachment_name: old_run.attachment_name,
-              form_field: Some(ff),
+              form_field: Some(ff), asset_index: old_run.asset_index,
             }
             ri2 += 1
           }
@@ -918,7 +944,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
           scale: 100, position_half_points: 0, rtl: false,
           is_line_break: true, is_page_break: false, is_image: false,
           image_data_url: "", image_width: 0, image_height: 0,
-          is_attachment: false, attachment_name: "", form_field: None,
+          is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
         }
         if field_stack.length() > 0 {
           let top_idx3 = field_stack.length() - 1
@@ -944,7 +970,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
           scale: 100, position_half_points: 0, rtl: false,
           is_line_break: false, is_page_break: true,
           is_image: false, image_data_url: "", image_width: 0, image_height: 0,
-          is_attachment: false, attachment_name: "", form_field: None,
+          is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
         }
         if field_stack.length() > 0 {
           field_stack[field_stack.length() - 1].runs.push(pb_run)
@@ -960,6 +986,15 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
         let asset = resolve_asset_for_picture(resolver, segment.state)
         match asset {
           Some(a) => {
+            // Find asset index in resolver.assets by id match
+            let mut asset_idx = -1
+            {
+              let mut ai = resolver.assets.length() - 1
+              while ai >= 0 {
+                if resolver.assets[ai].id == a.id { asset_idx = ai; break }
+                ai -= 1
+              }
+            }
             let img_run = RenderRun::{
               text: "",
               bold: segment.state.bold, italic: segment.state.italic,
@@ -978,7 +1013,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               is_image: a.asset_type == "image", image_data_url: a.data_url,
               image_width: a.width, image_height: a.height,
               is_attachment: a.asset_type == "attachment", attachment_name: a.id,
-              form_field: None,
+              form_field: None, asset_index: asset_idx,
             }
             if field_stack.length() > 0 {
               field_stack[field_stack.length() - 1].runs.push(img_run)
@@ -1020,7 +1055,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               outline: last.outline, shadow: last.shadow,
               emboss: last.emboss, imprint: last.imprint,
               scale: last.scale, position_half_points: last.position_half_points,
-              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
             }
             ci += 1
             continue
@@ -1048,7 +1083,7 @@ fn process_inline_fields(segments : Array[CharSegment], resolver : AssetResolver
               outline: last.outline, shadow: last.shadow,
               emboss: last.emboss, imprint: last.imprint,
               scale: last.scale, position_half_points: last.position_half_points,
-              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+              rtl: last.rtl, is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
             }
             ci += 1
             continue
@@ -1105,7 +1140,7 @@ fn merge_adjacent_runs(runs : Array[RenderRun]) -> Array[RenderRun] {
         caps: prev.caps, outline: prev.outline, shadow: prev.shadow,
         emboss: prev.emboss, imprint: prev.imprint, scale: prev.scale,
         position_half_points: prev.position_half_points, rtl: prev.rtl,
-        is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None,
+        is_line_break: false, is_page_break: false, is_image: false, image_data_url: "", image_width: 0, image_height: 0, is_attachment: false, attachment_name: "", form_field: None, asset_index: -1,
       }
     } else {
       merged.push(curr)
