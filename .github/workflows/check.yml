@@ -35,9 +35,6 @@ jobs:
       - name: moon check
         run: |
           moon check --target all
-      - name: moon build
-        run: |
-          moon build --target all
       - name: moon test
         run: |
           moon test --target all
