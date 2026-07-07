@@ -1,13 +1,13 @@
 import {
-  "moonbitlang/core/bytes" @bytes,
-  "moonbitlang/core/strconv" @strconv,
+  "moonbitlang/core/bytes",
+  "moonbitlang/core/strconv",
 }
 
 options(
   targets: {
-    "wasm_bridge.mbt": ["wasm-gc"],
-    "wasm_linear_bridge.mbt": ["wasm"],
-    "bench.mbt": ["js"],
+    "wasm_bridge.mbt": [ "wasm-gc" ],
+    "wasm_linear_bridge.mbt": [ "wasm" ],
+    "bench.mbt": [ "js" ],
   },
   link: {
     "js": {

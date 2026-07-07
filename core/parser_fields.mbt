@@ -1,8 +1,11 @@
 ///| MS-DOC field/hyperlink processing
+
 ///| Extracted from parser.mbt for better organization
 
 ///| Process field characters to extract hyperlink hrefs
-///| Field context for stack-based field parsing (mirrors JS buildInlineNodes)
+
+///|
+/// Field context for stack-based field parsing (mirrors JS buildInlineNodes)
 struct FieldCtx {
   instruction : StringBuilder
   is_hyperlink : Bool
@@ -12,7 +15,8 @@ struct FieldCtx {
   last_emitted : Int
 }
 
-///| Result of decoding a field instruction
+///|
+/// Result of decoding a field instruction
 struct FieldInstructionResult {
   instr_type : String
   href : String
@@ -20,14 +24,16 @@ struct FieldInstructionResult {
   raw : String
 }
 
-///| A hyperlink field range in CP-space
+///|
+/// A hyperlink field range in CP-space
 struct FieldRange {
   start : Int
   end : Int
   href : String
 }
 
-///| Strip field markers and trim trailing \r/\u{0007} in a single pass
+///|
+/// Strip field markers and trim trailing \r/\u{0007} in a single pass
 fn strip_field_markers_and_trim(text : String) -> String {
   let len = String::length(text)
   // Fast path: no markers and no trailing terminator
@@ -52,7 +58,7 @@ fn strip_field_markers_and_trim(text : String) -> String {
   let effective_end = if has_trailing { len - 1 } else { len }
   if !has_markers {
     // Only need to trim — just slice
-    return text[0 : effective_end].to_owned()
+    return text[0:effective_end].to_owned()
   }
   // Slow path: strip markers, skip trailing terminator
   let sb = StringBuilder::new()
@@ -70,7 +76,8 @@ fn strip_field_markers_and_trim(text : String) -> String {
   sb.to_string()
 }
 
-///| Strip field marker characters (0x13/0x14/0x15) from text
+///|
+/// Strip field marker characters (0x13/0x14/0x15) from text
 fn strip_field_markers(text : String) -> String {
   // Fast path: check if any markers exist
   let len = String::length(text)
@@ -103,7 +110,8 @@ fn strip_field_markers(text : String) -> String {
   sb.to_string()
 }
 
-///| Case-insensitive prefix match starting at offset
+///|
+/// Case-insensitive prefix match starting at offset
 fn ci_eq_prefix(s : String, offset : Int, prefix : String) -> Bool {
   let plen = String::length(prefix)
   let mut i = 0
@@ -118,7 +126,8 @@ fn ci_eq_prefix(s : String, offset : Int, prefix : String) -> Bool {
   true
 }
 
-///| Extract first quoted string or first whitespace-delimited token from body
+///|
+/// Extract first quoted string or first whitespace-delimited token from body
 fn extract_quoted_or_first_token_from(body : String, start : Int) -> String {
   let len = String::length(body)
   // Try quoted string
@@ -126,27 +135,36 @@ fn extract_quoted_or_first_token_from(body : String, start : Int) -> String {
   while i < len {
     if body[i] == 0x22 {
       let mut j = i + 1
-      while j < len && body[j] != 0x22 { j += 1 }
+      while j < len && body[j] != 0x22 {
+        j += 1
+      }
       if j > i + 1 {
-        return body[i + 1 : j].to_owned()
+        return body[i + 1:j].to_owned()
       }
     }
     i += 1
   }
   // Fall back to first whitespace-delimited token
   let mut s = start
-  while s < len && body[s] <= 0x20 { s += 1 }
-  if s >= len { return "" }
+  while s < len && body[s] <= 0x20 {
+    s += 1
+  }
+  if s >= len {
+    return ""
+  }
   let mut e = s
-  while e < len && body[e] > 0x20 { e += 1 }
+  while e < len && body[e] > 0x20 {
+    e += 1
+  }
   if e > s {
-    body[s : e].to_owned()
+    body[s:e].to_owned()
   } else {
     ""
   }
 }
 
-///| Decode a field instruction into type + value
+///|
+/// Decode a field instruction into type + value
 fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
   let len = String::length(instruction)
   // Normalize internal whitespace: replace control chars and multiple spaces with single space
@@ -175,52 +193,101 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
   }
   let remaining = len - start
   if remaining == 0 {
-    return FieldInstructionResult::{ instr_type: "unknown", href: "", target: "", raw: "" }
+    return FieldInstructionResult::{
+      instr_type: "unknown",
+      href: "",
+      target: "",
+      raw: "",
+    }
   }
-  let raw = inst_str[start : len].to_owned()
+  let raw = inst_str[start:len].to_owned()
 
   // HYPERLINK (9 chars)
   if remaining >= 9 && ci_eq_prefix(inst_str, start, "HYPERLINK") {
     let mut bs = start + 9
-    while bs < len && inst_str[bs] <= 0x20 { bs += 1 }
+    while bs < len && inst_str[bs] <= 0x20 {
+      bs += 1
+    }
     let href = extract_quoted_or_first_token_from(inst_str, bs)
     if href.length() > 0 {
-      return FieldInstructionResult::{ instr_type: "hyperlink", href, target: "", raw }
+      return FieldInstructionResult::{
+        instr_type: "hyperlink",
+        href,
+        target: "",
+        raw,
+      }
     }
-    return FieldInstructionResult::{ instr_type: "unknown", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "unknown",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   // INCLUDEPICTURE (14 chars)
   if remaining >= 14 && ci_eq_prefix(inst_str, start, "INCLUDEPICTURE") {
     let mut bs = start + 14
-    while bs < len && inst_str[bs] <= 0x20 { bs += 1 }
+    while bs < len && inst_str[bs] <= 0x20 {
+      bs += 1
+    }
     let target = extract_quoted_or_first_token_from(inst_str, bs)
-    return FieldInstructionResult::{ instr_type: "includePicture", href: "", target, raw }
+    return FieldInstructionResult::{
+      instr_type: "includePicture",
+      href: "",
+      target,
+      raw,
+    }
   }
 
   // EMBED (5 chars)
   if remaining >= 5 && ci_eq_prefix(inst_str, start, "EMBED") {
-    return FieldInstructionResult::{ instr_type: "embed", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "embed",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   // LINK (4 chars)
   if remaining >= 4 && ci_eq_prefix(inst_str, start, "LINK") {
-    return FieldInstructionResult::{ instr_type: "link", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "link",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   // FORMTEXT (8 chars)
   if remaining >= 8 && ci_eq_prefix(inst_str, start, "FORMTEXT") {
-    return FieldInstructionResult::{ instr_type: "formtext", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "formtext",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   // FORMCHECKBOX (12 chars)
   if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMCHECKBOX") {
-    return FieldInstructionResult::{ instr_type: "formcheckbox", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "formcheckbox",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   // FORMDROPDOWN (12 chars)
   if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMDROPDOWN") {
-    return FieldInstructionResult::{ instr_type: "formdropdown", href: "", target: "", raw }
+    return FieldInstructionResult::{
+      instr_type: "formdropdown",
+      href: "",
+      target: "",
+      raw,
+    }
   }
 
   FieldInstructionResult::{ instr_type: "unknown", href: "", target: "", raw }

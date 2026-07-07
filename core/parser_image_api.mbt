@@ -1,10 +1,16 @@
 ///| Deferred image processing API
+
 ///| Extracted from parser.mbt for better organization
 
 ///| Parse MS-DOC file with deferred image processing
+
 ///| Returns a DeferredParseResult that allows async image extraction
-///| This is the fastest parse option - images are placeholders until extracted
-pub fn parse_ms_doc_deferred(input : FixedArray[Byte]) -> DeferredParseResult raise {
+
+///|
+/// This is the fastest parse option - images are placeholders until extracted
+pub fn parse_ms_doc_deferred(
+  input : FixedArray[Byte],
+) -> DeferredParseResult raise {
   let result = parse_ms_doc(input)
   DeferredParseResult::{
     result,
@@ -14,7 +20,8 @@ pub fn parse_ms_doc_deferred(input : FixedArray[Byte]) -> DeferredParseResult ra
   }
 }
 
-///| Parse MS-DOC file with deferred image processing and custom config
+///|
+/// Parse MS-DOC file with deferred image processing and custom config
 pub fn parse_ms_doc_deferred_with_config(
   input : FixedArray[Byte],
   config : ImageProcessorConfig,
@@ -29,11 +36,13 @@ pub fn parse_ms_doc_deferred_with_config(
 }
 
 ///| Extract a single image from a deferred parse result
-///| Uses cache to avoid re-extracting the same image
+
+///|
+/// Uses cache to avoid re-extracting the same image
 pub fn extract_deferred_image(
   deferred : DeferredParseResult,
   asset_index : Int,
-) -> Option[Asset] {
+) -> Asset? {
   if asset_index < 0 || asset_index >= deferred.result.assets.length() {
     return None
   }
@@ -57,7 +66,9 @@ pub fn extract_deferred_image(
 }
 
 ///| Extract all images from a deferred parse result
-///| Returns a new array with processed images
+
+///|
+/// Returns a new array with processed images
 pub fn extract_all_deferred_images(
   deferred : DeferredParseResult,
 ) -> Array[Asset] raise {
@@ -73,20 +84,27 @@ pub fn extract_all_deferred_images(
   result
 }
 
-///| Get the parse result from a deferred parse
+///|
+/// Get the parse result from a deferred parse
 pub fn get_deferred_result(deferred : DeferredParseResult) -> MsDocParseResult {
   deferred.result
 }
 
-///| Check if an asset is a placeholder (needs async extraction)
+///|
+/// Check if an asset is a placeholder (needs async extraction)
 pub fn is_placeholder_asset(asset : Asset) -> Bool {
   // Asset is a placeholder if it has raw bytes but:
   // 1. data_url is a SVG placeholder, OR
   // 2. data_url is empty (not yet processed)
-  asset.bytes.length() > 0 && (asset.data_url.has_prefix("data:image/svg+xml;base64,") || asset.data_url.length() == 0)
+  asset.bytes.length() > 0 &&
+  (
+    asset.data_url.has_prefix("data:image/svg+xml;base64,") ||
+    asset.data_url.length() == 0
+  )
 }
 
-///| Count placeholder assets in a parse result
+///|
+/// Count placeholder assets in a parse result
 pub fn count_placeholder_assets(assets : Array[Asset]) -> Int {
   let mut count = 0
   for asset in assets {
@@ -98,8 +116,11 @@ pub fn count_placeholder_assets(assets : Array[Asset]) -> Int {
 }
 
 ///| Preload all images from a parse result (blocking)
+
 ///| Processes all raw image assets
-///| Uses content-signature dedup to avoid redundant processing
+
+///|
+/// Uses content-signature dedup to avoid redundant processing
 pub fn preload_all_images(result : MsDocParseResult) -> Array[Asset] {
   let processed : Array[Asset] = Array::new()
   for i in 0..<result.assets.length() {
@@ -134,14 +155,26 @@ pub fn preload_all_images(result : MsDocParseResult) -> Array[Asset] {
 }
 
 ///| Extract image with fallback mechanism
+
 ///| Processes raw image bytes stored in asset during parse
-///| Uses content-signature dedup to avoid redundant processing of identical images
+
+///|
+/// Uses content-signature dedup to avoid redundant processing of identical images
 pub fn extract_image_with_fallback(
   result : MsDocParseResult,
   asset_index : Int,
 ) -> Asset {
   if asset_index < 0 || asset_index >= result.assets.length() {
-    return Asset::{ id: "", asset_type: "", name: "", mime: "", bytes: [], data_url: "", width: 0, height: 0 }
+    return Asset::{
+      id: "",
+      asset_type: "",
+      name: "",
+      mime: "",
+      bytes: [],
+      data_url: "",
+      width: 0,
+      height: 0,
+    }
   }
   let asset = result.assets[asset_index]
   // If already has real data_url, return as-is

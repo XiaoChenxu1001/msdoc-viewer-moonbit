@@ -1,7 +1,9 @@
 ///| Section properties parsing
+
 ///| Extracted from parser.mbt for better organization
 
-///| Parse PlcfSed to get section boundaries and properties
+///|
+/// Parse PlcfSed to get section boundaries and properties
 pub fn parse_sections(
   fib_reader : BinaryReader,
   fib_rgfc_lcb_start : Int,
@@ -16,7 +18,10 @@ pub fn parse_sections(
     return sections
   }
 
-  let sed_view = table_bytes.view(start=fc_plcf_sed, end=fc_plcf_sed + lcb_plcf_sed)
+  let sed_view = table_bytes.view(
+    start=fc_plcf_sed,
+    end=fc_plcf_sed + lcb_plcf_sed,
+  )
   let sed_reader = BinaryReader::from_view(sed_view)
   // PlcfSed: (N+1) CPs + N Sed structures (12 bytes each)
   // Sed structure: fcSepx (4 bytes) + fnMpr (1 byte) + fcMpr (4 bytes) + fn (1 byte) + reserved (1 byte)
@@ -45,12 +50,12 @@ pub fn parse_sections(
     let mut header_distance = 720
     let mut footer_distance = 720
     let mut break_type = 2
-    let mut page_width = 12240   // 8.5 inches
-    let mut page_height = 15840  // 11 inches
-    let mut orientation = 0      // portrait
-    let mut margin_top = 1440    // 1 inch
+    let mut page_width = 12240 // 8.5 inches
+    let mut page_height = 15840 // 11 inches
+    let mut orientation = 0 // portrait
+    let mut margin_top = 1440 // 1 inch
     let mut margin_bottom = 1440
-    let mut margin_left = 1800   // 1.25 inches
+    let mut margin_left = 1800 // 1.25 inches
     let mut margin_right = 1800
     let mut column_count = 1
     let mut column_spacing = 720 // 0.5 inch
@@ -62,21 +67,40 @@ pub fn parse_sections(
       let grpprl_end = grpprl_start + cb
       let mut prl_offset = grpprl_start
 
-      while prl_offset + 2 <= grpprl_end && prl_offset + 2 <= word_bytes.length() {
+      while prl_offset + 2 <= grpprl_end &&
+            prl_offset + 2 <= word_bytes.length() {
         let sprm = sepx_reader.u16(prl_offset)
-        let sprm_group = (sprm.lsr(13)).land(0x7)
+        let sprm_group = sprm.lsr(13).land(0x7)
         let sprm_opcode = sprm.lsr(4).land(0x1FF)
         let sprm_size = sprm.land(0xF)
 
         // Section SPRMs (group 3)
         if sprm_group == 3 {
           match sprm_opcode {
-            0x09 => { if prl_offset + 3 <= grpprl_end { break_type = sepx_reader.u8(prl_offset + 2) } }
-            0x0A => { if prl_offset + 3 <= grpprl_end { has_title_page = sepx_reader.u8(prl_offset + 2) != 0 } }
-            0x19 => { if prl_offset + 4 <= grpprl_end { page_width = sepx_reader.u16(prl_offset + 2) } }
-            0x1A => { if prl_offset + 4 <= grpprl_end { page_height = sepx_reader.u16(prl_offset + 2) } }
-            0x1B => { if prl_offset + 3 <= grpprl_end { orientation = sepx_reader.u8(prl_offset + 2) } }
-            0x12 => { if prl_offset + 3 <= grpprl_end { column_count = sepx_reader.u8(prl_offset + 2).land(0xFF) + 1 } }
+            0x09 =>
+              if prl_offset + 3 <= grpprl_end {
+                break_type = sepx_reader.u8(prl_offset + 2)
+              }
+            0x0A =>
+              if prl_offset + 3 <= grpprl_end {
+                has_title_page = sepx_reader.u8(prl_offset + 2) != 0
+              }
+            0x19 =>
+              if prl_offset + 4 <= grpprl_end {
+                page_width = sepx_reader.u16(prl_offset + 2)
+              }
+            0x1A =>
+              if prl_offset + 4 <= grpprl_end {
+                page_height = sepx_reader.u16(prl_offset + 2)
+              }
+            0x1B =>
+              if prl_offset + 3 <= grpprl_end {
+                orientation = sepx_reader.u8(prl_offset + 2)
+              }
+            0x12 =>
+              if prl_offset + 3 <= grpprl_end {
+                column_count = sepx_reader.u8(prl_offset + 2).land(0xFF) + 1
+              }
             _ => ()
           }
         }
@@ -98,8 +122,14 @@ pub fn parse_sections(
         // YAS SPRMs for header/footer distances (group 3, opcode 0x17-0x18)
         if sprm_group == 3 {
           match sprm_opcode {
-            0x17 => { if prl_offset + 4 <= grpprl_end { header_distance = sepx_reader.u16(prl_offset + 2) } }
-            0x18 => { if prl_offset + 4 <= grpprl_end { footer_distance = sepx_reader.u16(prl_offset + 2) } }
+            0x17 =>
+              if prl_offset + 4 <= grpprl_end {
+                header_distance = sepx_reader.u16(prl_offset + 2)
+              }
+            0x18 =>
+              if prl_offset + 4 <= grpprl_end {
+                footer_distance = sepx_reader.u16(prl_offset + 2)
+              }
             _ => ()
           }
         }
@@ -112,22 +142,22 @@ pub fn parse_sections(
         }
 
         // Advance to next Prl
-        let operand_size = if sprm_size == 0xF {  // variable size
+        let operand_size = if sprm_size == 0xF { // variable size
           if prl_offset + 3 < word_bytes.length() {
             word_bytes[prl_offset + 2].to_int() + 3
           } else {
             3
           }
-        } else if sprm_size == 0xE {  // 2-byte size
+        } else if sprm_size == 0xE { // 2-byte size
           4
-        } else if sprm_size == 0xD {  // 4-byte size
+        } else if sprm_size == 0xD { // 4-byte size
           6
-        } else if sprm_size == 0xC {  // 3-byte size
+        } else if sprm_size == 0xC { // 3-byte size
           5
-        } else if sprm_size >= 1 && sprm_size <= 3 {  // 0, 1, 2, 3 bytes
+        } else if sprm_size >= 1 && sprm_size <= 3 { // 0, 1, 2, 3 bytes
           2 + sprm_size
         } else {
-          2  // fallback
+          2 // fallback
         }
         prl_offset += operand_size
       }

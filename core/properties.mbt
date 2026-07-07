@@ -1,6 +1,7 @@
 ///| Property state converters for MS-DOC files
 
-///| Character state
+///|
+/// Character state
 pub struct CharState {
   bold : Bool
   italic : Bool
@@ -34,7 +35,8 @@ pub struct CharState {
   is_object : Bool
 }
 
-///| Paragraph state
+///|
+/// Paragraph state
 pub struct ParaState {
   align : Int
   indent_left : Int
@@ -80,7 +82,8 @@ pub struct ParaState {
   outline_level : Int
 }
 
-///| Table state
+///|
+/// Table state
 pub struct TableState {
   style_id : Int
   indent : Int
@@ -96,14 +99,16 @@ pub struct TableState {
   cell_padding : Array[Int]
 }
 
-///| Convert character properties to state
+///|
+/// Convert character properties to state
 pub fn char_props_to_state(props : Array[Byte]) -> CharState {
   let view = props.view()
   let decoded = decode_grpprl(view)
   char_props_from_decoded(decoded)
 }
 
-///| Convert decoded SPRMs to character state
+///|
+/// Convert decoded SPRMs to character state
 pub fn char_props_from_decoded(decoded : Array[DecodedProperty]) -> CharState {
   let mut bold = false
   let mut italic = false
@@ -214,14 +219,16 @@ pub fn char_props_from_decoded(decoded : Array[DecodedProperty]) -> CharState {
   }
 }
 
-///| Convert paragraph properties to state
+///|
+/// Convert paragraph properties to state
 pub fn para_props_to_state(props : Array[Byte]) -> ParaState {
   let view = props.view()
   let decoded = decode_grpprl(view)
   para_props_from_decoded(decoded)
 }
 
-///| Convert decoded SPRMs to paragraph state
+///|
+/// Convert decoded SPRMs to paragraph state
 pub fn para_props_from_decoded(decoded : Array[DecodedProperty]) -> ParaState {
   let mut align = 0
   let mut indent_left = 0
@@ -370,14 +377,18 @@ pub fn para_props_from_decoded(decoded : Array[DecodedProperty]) -> ParaState {
   }
 }
 
-///| Convert decoded table properties to state with style inheritance support
+///|
+/// Convert decoded table properties to state with style inheritance support
 pub fn table_props_from_decoded(decoded : Array[DecodedProperty]) -> TableState {
   table_props_from_decoded_impl(decoded, [])
 }
 
-///| Internal: extract table state from decoded properties
-fn table_props_from_decoded_impl(decoded : Array[DecodedProperty], raw_bytes : Array[Byte]) -> TableState {
-
+///|
+/// Internal: extract table state from decoded properties
+fn table_props_from_decoded_impl(
+  decoded : Array[DecodedProperty],
+  raw_bytes : Array[Byte],
+) -> TableState {
   let mut style_id = 0
   let mut left_indent = 0
   let mut row_height = 0
@@ -393,22 +404,29 @@ fn table_props_from_decoded_impl(decoded : Array[DecodedProperty], raw_bytes : A
   if raw_bytes.length() > 0 {
     let mut offset = 0
     while offset + 2 <= raw_bytes.length() {
-      let sprm = raw_bytes[offset].to_int() | (raw_bytes[offset + 1].to_int() << 8)
+      let sprm = raw_bytes[offset].to_int() |
+        (raw_bytes[offset + 1].to_int() << 8)
       let op_type = sprm.lsr(13).land(0x7)
       if sprm == 0xd608 {
         let cb = if offset + 4 <= raw_bytes.length() {
           raw_bytes[offset + 2].to_int() | (raw_bytes[offset + 3].to_int() << 8)
-        } else { 0 }
+        } else {
+          0
+        }
         let total_skip = cb + 1
         if offset + 2 + total_skip <= raw_bytes.length() {
           let data_start = offset + 2
-          def_table_bytes = Array::makei(total_skip, fn(i) { raw_bytes[data_start + i] })
+          def_table_bytes = Array::makei(total_skip, fn(i) {
+            raw_bytes[data_start + i]
+          })
         }
         offset += 2 + total_skip
       } else if op_type == 6 {
         let data_len = if offset + 2 < raw_bytes.length() {
           raw_bytes[offset + 2].to_int() + 1
-        } else { 0 }
+        } else {
+          0
+        }
         offset += 2 + data_len
       } else {
         let operand_len = get_sprm_operand_length(sprm)
@@ -433,19 +451,35 @@ fn table_props_from_decoded_impl(decoded : Array[DecodedProperty], raw_bytes : A
         let w_width = prop.value & 0xFFFF
         let grfbrc = (prop.value >> 19) & 0xF
         // grfbrc: 0x01=top, 0x02=left, 0x04=bottom, 0x08=right
-        if (grfbrc & 0x01) != 0 { cell_padding_top = w_width }
-        if (grfbrc & 0x02) != 0 { cell_padding_left = w_width }
-        if (grfbrc & 0x04) != 0 { cell_padding_bottom = w_width }
-        if (grfbrc & 0x08) != 0 { cell_padding_right = w_width }
+        if (grfbrc & 0x01) != 0 {
+          cell_padding_top = w_width
+        }
+        if (grfbrc & 0x02) != 0 {
+          cell_padding_left = w_width
+        }
+        if (grfbrc & 0x04) != 0 {
+          cell_padding_bottom = w_width
+        }
+        if (grfbrc & 0x08) != 0 {
+          cell_padding_right = w_width
+        }
       }
       "cellPaddingDefault" => {
         // Extract padding from packed value
         let w_width = prop.value & 0xFFFF
         let grfbrc = (prop.value >> 19) & 0xF
-        if (grfbrc & 0x01) != 0 { cell_padding_top = w_width }
-        if (grfbrc & 0x02) != 0 { cell_padding_left = w_width }
-        if (grfbrc & 0x04) != 0 { cell_padding_bottom = w_width }
-        if (grfbrc & 0x08) != 0 { cell_padding_right = w_width }
+        if (grfbrc & 0x01) != 0 {
+          cell_padding_top = w_width
+        }
+        if (grfbrc & 0x02) != 0 {
+          cell_padding_left = w_width
+        }
+        if (grfbrc & 0x04) != 0 {
+          cell_padding_bottom = w_width
+        }
+        if (grfbrc & 0x08) != 0 {
+          cell_padding_right = w_width
+        }
       }
       _ => ignore(prop.value)
     }
@@ -463,11 +497,14 @@ fn table_props_from_decoded_impl(decoded : Array[DecodedProperty], raw_bytes : A
     def_table_bytes,
     operations: decoded,
     table_shading,
-    cell_padding: [cell_padding_top, cell_padding_left, cell_padding_bottom, cell_padding_right],
+    cell_padding: [
+      cell_padding_top, cell_padding_left, cell_padding_bottom, cell_padding_right,
+    ],
   }
 }
 
-///| Table cell definition from defTable bytes
+///|
+/// Table cell definition from defTable bytes
 pub struct TableCellDef {
   index : Int
   width : Int
@@ -484,8 +521,14 @@ pub struct TableCellDef {
   text_flow : Int
 }
 
-///| Apply a callback to a range of table cells
-fn range_apply_cells(cells : Array[TableCellDef], first : Int, lim : Int, callback : (TableCellDef, Int) -> TableCellDef) -> Unit {
+///|
+/// Apply a callback to a range of table cells
+fn range_apply_cells(
+  cells : Array[TableCellDef],
+  first : Int,
+  lim : Int,
+  callback : (TableCellDef, Int) -> TableCellDef,
+) -> Unit {
   let f = if first < 0 { 0 } else { first }
   let l = if lim < f { f } else { lim }
   let mut i = f
@@ -495,8 +538,11 @@ fn range_apply_cells(cells : Array[TableCellDef], first : Int, lim : Int, callba
   }
 }
 
-///| Apply table state to cells
-pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDef] {
+///|
+/// Apply table state to cells
+pub fn apply_table_state_to_cells(
+  table_state : TableState,
+) -> Array[TableCellDef] {
   let bytes = table_state.def_table_bytes
   if bytes.length() < 4 {
     return []
@@ -542,7 +588,11 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
 
     cells.push(TableCellDef::{
       index: i,
-      width: if w_width > 0 { w_width } else { width },
+      width: if w_width > 0 {
+        w_width
+      } else {
+        width
+      },
       left_boundary,
       right_boundary,
       merge: horz_merge,
@@ -569,14 +619,18 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
   for op in table_state.operations {
     let (first, lim) = get_range(op)
     match op.name {
-      "merge" => {
+      "merge" =>
         range_apply_cells(cells, first, lim, fn(cell, idx) {
           TableCellDef::{
             index: cell.index,
             width: cell.width,
             left_boundary: cell.left_boundary,
             right_boundary: cell.right_boundary,
-            merge: if idx == first { 2 } else { 1 },
+            merge: if idx == first {
+              2
+            } else {
+              1
+            },
             vert_merge: cell.vert_merge,
             vert_align: cell.vert_align,
             borders: cell.borders,
@@ -587,8 +641,7 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
             text_flow: cell.text_flow,
           }
         })
-      }
-      "split" => {
+      "split" =>
         range_apply_cells(cells, first, lim, fn(cell, _idx) {
           TableCellDef::{
             index: cell.index,
@@ -606,14 +659,12 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
             text_flow: cell.text_flow,
           }
         })
-      }
       "cellWidth" => {
         // Use parsed range+width if available
         let width = match op.range {
-          Some(_r) => {
+          Some(_r) =>
             // value was packed as fts_width | (width << 8), extract width
             op.value.lsr(8)
-          }
           None => op.value.lsr(16)
         }
         range_apply_cells(cells, first, lim, fn(cell, _idx) {
@@ -680,19 +731,26 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
           Some(brc) => brc
           None => {
             let brc = op.value.lsr(16)
-            if brc == 0 { [] } else {
-              Array::makei(4, fn(j) { (brc.lsr(j * 8)).land(0xFF).to_byte() })
+            if brc == 0 {
+              []
+            } else {
+              Array::makei(4, fn(j) { brc.lsr(j * 8).land(0xFF).to_byte() })
             }
           }
         }
         // Merge with existing borders: only overwrite non-zero bytes from new Brc80
         range_apply_cells(cells, first, lim, fn(cell, _idx) {
-          let merged_borders : Array[Byte] = if new_brc.length() >= 4 && cell.borders.length() >= 16 {
+          let merged_borders : Array[Byte] = if new_brc.length() >= 4 &&
+            cell.borders.length() >= 16 {
             // Apply new_brc to all 4 border sides (top/left/bottom/right), merging non-zero bytes
             Array::makei(16, fn(j) {
-              let side_offset = (j / 4) * 4
+              let side_offset = j / 4 * 4
               let new_val = new_brc[j - side_offset]
-              if new_val != 0 { new_val } else { cell.borders[j] }
+              if new_val != 0 {
+                new_val
+              } else {
+                cell.borders[j]
+              }
             })
           } else if new_brc.length() >= 4 {
             new_brc
@@ -728,7 +786,9 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
             vert_merge: cell.vert_merge,
             vert_align: cell.vert_align,
             borders: cell.borders,
-            shading: Array::makei(4, fn(j) { (shd.lsr(j * 8)).land(0xFF).to_byte() }),
+            shading: Array::makei(4, fn(j) {
+              shd.lsr(j * 8).land(0xFF).to_byte()
+            }),
             fit_text: cell.fit_text,
             no_wrap: cell.no_wrap,
             hide_mark: cell.hide_mark,
@@ -823,22 +883,26 @@ pub fn apply_table_state_to_cells(table_state : TableState) -> Array[TableCellDe
   cells
 }
 
-///| CSS text align
+///|
+/// CSS text align
 pub fn css_text_align(value : Int) -> String {
   alignment_css(value)
 }
 
-///| CSS underline
+///|
+/// CSS underline
 pub fn css_underline(value : Int) -> String {
   underline_name(value)
 }
 
-///| CSS vertical align
+///|
+/// CSS vertical align
 pub fn css_vertical_align(value : Int) -> String {
   vertical_align_css(value)
 }
 
-///| COLOR_INDEX_MAP - standard Word color index to hex
+///|
+/// COLOR_INDEX_MAP - standard Word color index to hex
 pub fn color_index_to_hex(index : Int) -> String {
   match index {
     0 => "#666"
@@ -862,7 +926,8 @@ pub fn color_index_to_hex(index : Int) -> String {
   }
 }
 
-///| HIGHLIGHT_COLOR_MAP - highlight index to background color
+///|
+/// HIGHLIGHT_COLOR_MAP - highlight index to background color
 pub fn highlight_color_to_hex(index : Int) -> String {
   match index {
     0 => ""

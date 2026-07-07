@@ -1,7 +1,9 @@
 ///| HTML renderer for MS-DOC
+
 ///| Renders parsed MsDocParseResult to HTML+CSS output
 
-///| Escape HTML special characters (single-pass scan)
+///|
+/// Escape HTML special characters (single-pass scan)
 pub fn escape_html_text(text : String) -> String {
   // Check if any escaping is needed (fast path for plain text)
   let mut needs_escape = false
@@ -29,19 +31,19 @@ pub fn escape_html_text(text : String) -> String {
       0x3E => result <+ "&gt;"
       0x22 => result <+ "&quot;"
       0x27 => result <+ "&#39;"
-      _ => {
+      _ =>
         match text[i].to_char() {
           Some(c) => result <+ "\{c}"
           None => ignore(ch)
         }
-      }
     }
     i += 1
   }
   result.to_string()
 }
 
-///| Get default CSS styles matching JS reference
+///|
+/// Get default CSS styles matching JS reference
 pub fn get_default_css() -> String {
   // Base styles
   ".msdoc-root{box-sizing:border-box;max-width:100%;padding:24px;background:#fff;color:#111;font:14px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}" +
@@ -129,55 +131,77 @@ pub fn get_default_css() -> String {
   ".msdoc-run>span,.msdoc-run{font-size:var(--fs);font-family:var(--ff);color:var(--cl);background-color:var(--bg)}"
 }
 
-///| Render attachments block to HTML
+///|
+/// Render attachments block to HTML
 fn render_attachments_html(items : Array[Asset]) -> String {
   let result = StringBuilder::new()
   result <+ "<section class=\"msdoc-attachments\">"
   result <+ "<div class=\"msdoc-attachments-title\">Embedded attachments</div>"
   result <+ "<ul>"
   for item in items {
-    let data_url = if item.data_url.length() > 0 { item.data_url } else { data_url_from_bytes(item.bytes, item.mime) }
+    let data_url = if item.data_url.length() > 0 {
+      item.data_url
+    } else {
+      data_url_from_bytes(item.bytes, item.mime)
+    }
     let label = if item.name.length() > 0 { item.name } else { "embedded-file" }
-    result <+ "<li><a href=\"\{data_url}\" class=\"msdoc-attachment\" download=\"\{escape_html_text(label)}\">\{escape_html_text(label)}</a></li>"
+    result <+
+      "<li><a href=\"\{data_url}\" class=\"msdoc-attachment\" download=\"\{escape_html_text(label)}\">\{escape_html_text(label)}</a></li>"
   }
   result <+ "</ul>"
   result <+ "</section>"
   result.to_string()
 }
 
-///| Parse and render MS-DOC to HTML (convenience function)
+///|
+/// Parse and render MS-DOC to HTML (convenience function)
 pub fn render_ms_doc(input : FixedArray[Byte]) -> RenderResult raise {
   let parsed = parse_ms_doc(input)
   render_parsed(parsed)
 }
 
-///| Parse and render MS-DOC with custom CSS override
-pub fn render_ms_doc_with_css(input : FixedArray[Byte], custom_css : String) -> RenderResult raise {
+///|
+/// Parse and render MS-DOC with custom CSS override
+pub fn render_ms_doc_with_css(
+  input : FixedArray[Byte],
+  custom_css : String,
+) -> RenderResult raise {
   let parsed = parse_ms_doc(input)
   render_parsed_with_css(parsed, custom_css)
 }
 
-///| Parse MS-DOC and return HTML string directly
+///|
+/// Parse MS-DOC and return HTML string directly
 pub fn parse_ms_doc_to_html(input : FixedArray[Byte]) -> String raise {
   let result = render_ms_doc(input)
   result.html
 }
 
-///| Render parsed result to HTML
+///|
+/// Render parsed result to HTML
 pub fn render_parsed(parsed : MsDocParseResult) -> RenderResult {
   render_parsed_with_css(parsed, "")
 }
 
-///| Render parsed result to HTML with optional custom CSS
-pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) -> RenderResult {
+///|
+/// Render parsed result to HTML with optional custom CSS
+pub fn render_parsed_with_css(
+  parsed : MsDocParseResult,
+  custom_css : String,
+) -> RenderResult {
   // Generate CSS: use custom if provided, else default
-  let base_css = if custom_css.length() > 0 { custom_css } else { get_default_css() }
+  let base_css = if custom_css.length() > 0 {
+    custom_css
+  } else {
+    get_default_css()
+  }
 
   // Append section properties as @page CSS if available
   let css = if parsed.sections.length() > 0 {
     let sec = parsed.sections[0]
     let orient = if sec.orientation == 1 { " landscape" } else { "" }
-    base_css + "\n@page{size:\{sec.page_width}twip \{sec.page_height}twip\{orient};margin:\{sec.margin_top}twip \{sec.margin_right}twip \{sec.margin_bottom}twip \{sec.margin_left}twip}"
+    base_css +
+    "\n@page{size:\{sec.page_width}twip \{sec.page_height}twip\{orient};margin:\{sec.margin_top}twip \{sec.margin_right}twip \{sec.margin_bottom}twip \{sec.margin_left}twip}"
   } else {
     base_css
   }
@@ -189,20 +213,18 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
   let mut textbox_render_index = 0
   for block in parsed.blocks {
     match block {
-      Block::Attachments(items) => {
-        html <+ "\{render_attachments_html(items)}"
-      }
-      Block::Table(table) => {
-        html <+ "\{render_table_html(table)}"
-      }
+      Block::Attachments(items) => html <+ "\{render_attachments_html(items)}"
+      Block::Table(table) => html <+ "\{render_table_html(table)}"
       Block::Paragraph(para) => {
         // Check if this is a textbox anchor paragraph (contains MERGEFORMAT field)
-        let is_textbox_anchor = para.text.contains("MERGEFORMAT") && parsed.textboxes.length() > 0
+        let is_textbox_anchor = para.text.contains("MERGEFORMAT") &&
+          parsed.textboxes.length() > 0
         if is_textbox_anchor && textbox_render_index < parsed.textboxes.length() {
           // Render the next textbox content
           let tb = parsed.textboxes[textbox_render_index]
           if tb.text.length() > 0 {
-            html <+ "<div class=\"msdoc-textbox\">\{escape_html_text(tb.text)}</div>"
+            html <+
+              "<div class=\"msdoc-textbox\">\{escape_html_text(tb.text)}</div>"
           }
           textbox_render_index += 1
         } else {
@@ -219,7 +241,8 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
       html <+ "<div class=\"msdoc-headers\">"
       for hf in parsed.headers {
         if hf.text.length() > 0 {
-          html <+ "<div class=\"msdoc-header\">\{escape_html_text(hf.text)}</div>"
+          html <+
+            "<div class=\"msdoc-header\">\{escape_html_text(hf.text)}</div>"
         }
       }
       html <+ "</div>"
@@ -228,7 +251,8 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
       html <+ "<div class=\"msdoc-footers\">"
       for hf in parsed.footers {
         if hf.text.length() > 0 {
-          html <+ "<div class=\"msdoc-footer\">\{escape_html_text(hf.text)}</div>"
+          html <+
+            "<div class=\"msdoc-footer\">\{escape_html_text(hf.text)}</div>"
         }
       }
       html <+ "</div>"
@@ -242,7 +266,8 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
     html <+ "<div class=\"msdoc-footnotes-title\">Notes</div>"
     for ftn in parsed.footnotes {
       if ftn.text.length() > 0 {
-        html <+ "<div class=\"msdoc-footnote\">\{ftn.note_index}. \{escape_html_text(ftn.text)}</div>"
+        html <+
+          "<div class=\"msdoc-footnote\">\{ftn.note_index}. \{escape_html_text(ftn.text)}</div>"
       }
     }
     html <+ "</div>"
@@ -254,7 +279,8 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
     html <+ "<div class=\"msdoc-endnotes-title\">Endnotes</div>"
     for edn in parsed.endnotes {
       if edn.text.length() > 0 {
-        html <+ "<div class=\"msdoc-endnote\">\{edn.note_index}. \{escape_html_text(edn.text)}</div>"
+        html <+
+          "<div class=\"msdoc-endnote\">\{edn.note_index}. \{escape_html_text(edn.text)}</div>"
       }
     }
     html <+ "</div>"
@@ -266,13 +292,19 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
     html <+ "<div class=\"msdoc-comments-title\">Comments</div>"
     for c in parsed.comments {
       if c.text.length() > 0 {
-        let author_display = if c.author.length() > 0 { escape_html_text(c.author) + ": " } else { "" }
-        html <+ "<div class=\"msdoc-comment\" data-comment-id=\"\{c.comment_index}\">"
+        let author_display = if c.author.length() > 0 {
+          escape_html_text(c.author) + ": "
+        } else {
+          ""
+        }
+        html <+
+          "<div class=\"msdoc-comment\" data-comment-id=\"\{c.comment_index}\">"
         html <+ "<div class=\"msdoc-comment-header\">"
         html <+ "<span class=\"msdoc-comment-author\">\{author_display}</span>"
         html <+ "<span class=\"msdoc-comment-num\">#\{c.comment_index}</span>"
         html <+ "</div>"
-        html <+ "<div class=\"msdoc-comment-text\">\{escape_html_text(c.text)}</div>"
+        html <+
+          "<div class=\"msdoc-comment-text\">\{escape_html_text(c.text)}</div>"
         html <+ "</div>"
       }
     }
@@ -290,26 +322,33 @@ pub fn render_parsed_with_css(parsed : MsDocParseResult, custom_css : String) ->
   }
 }
 
-///| Convert border object to CSS border string (faithful port of JS borderToCss)
+///|
+/// Convert border object to CSS border string (faithful port of JS borderToCss)
 fn border_to_css(line_width : Int, border_type : Int, color : Int) -> String {
   let lw = if line_width <= 0 { 8 } else { line_width }
   let width = {
-    let raw = (lw * 13333) / (8 * 10000)
-    if raw < 1 { 1 } else { raw }
+    let raw = lw * 13333 / (8 * 10000)
+    if raw < 1 {
+      1
+    } else {
+      raw
+    }
   }
-  let bstyle = if border_type == 6 { "double" }
-    else if border_type == 3 { "dotted" }
-    else if border_type == 2 { "dashed" }
-    else { "solid" }
-  let color_hex = if color > 0 {
-    color_index_to_hex(color)
+  let bstyle = if border_type == 6 {
+    "double"
+  } else if border_type == 3 {
+    "dotted"
+  } else if border_type == 2 {
+    "dashed"
   } else {
-    "#666"
+    "solid"
   }
+  let color_hex = if color > 0 { color_index_to_hex(color) } else { "#666" }
   "\{width}px \{bstyle} \{color_hex}"
 }
 
-///| Render a single paragraph to HTML
+///|
+/// Render a single paragraph to HTML
 fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
   let style = StringBuilder::new()
 
@@ -353,9 +392,13 @@ fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
 
   // line-height from lineSpacing: abs(lineSpacing)/240, clamped to min 1
   if para.line_spacing != 0 && para.line_spacing != 240 {
-    let abs_ls = if para.line_spacing < 0 { 0 - para.line_spacing } else { para.line_spacing }
+    let abs_ls = if para.line_spacing < 0 {
+      0 - para.line_spacing
+    } else {
+      para.line_spacing
+    }
     let ls_int = abs_ls / 240
-    let ls_frac = ((abs_ls % 240) * 10 + 120) / 240
+    let ls_frac = (abs_ls % 240 * 10 + 120) / 240
     let ls_final = if ls_int < 1 { 1 } else { ls_int }
     if ls_frac >= 5 {
       style <+ "line-height:\{ls_final}.5;"
@@ -387,29 +430,29 @@ fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
   // Paragraph borders
   if para.border_top != 0 {
     let lw = para.border_top & 0xFF
-    let bt = para.border_top >> 8 & 0xF
-    let bc = para.border_top >> 16 & 0x3F
+    let bt = (para.border_top >> 8) & 0xF
+    let bc = (para.border_top >> 16) & 0x3F
     let css = border_to_css(lw, bt, bc)
     style <+ "border-top:\{css};"
   }
   if para.border_left != 0 {
     let lw = para.border_left & 0xFF
-    let bt = para.border_left >> 8 & 0xF
-    let bc = para.border_left >> 16 & 0x3F
+    let bt = (para.border_left >> 8) & 0xF
+    let bc = (para.border_left >> 16) & 0x3F
     let css = border_to_css(lw, bt, bc)
     style <+ "border-left:\{css};"
   }
   if para.border_bottom != 0 {
     let lw = para.border_bottom & 0xFF
-    let bt = para.border_bottom >> 8 & 0xF
-    let bc = para.border_bottom >> 16 & 0x3F
+    let bt = (para.border_bottom >> 8) & 0xF
+    let bc = (para.border_bottom >> 16) & 0x3F
     let css = border_to_css(lw, bt, bc)
     style <+ "border-bottom:\{css};"
   }
   if para.border_right != 0 {
     let lw = para.border_right & 0xFF
-    let bt = para.border_right >> 8 & 0xF
-    let bc = para.border_right >> 16 & 0x3F
+    let bt = (para.border_right >> 8) & 0xF
+    let bc = (para.border_right >> 16) & 0x3F
     let css = border_to_css(lw, bt, bc)
     style <+ "border-right:\{css};"
   }
@@ -427,9 +470,13 @@ fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
   let class_str = classes.to_string()
   let result = StringBuilder::new()
   // Use heading tags for outline levels 0-8 (h1-h9)
-  let tag = if inline { "div" }
-    else if para.outline_level >= 0 && para.outline_level <= 8 { "h\{para.outline_level + 1}" }
-    else { "p" }
+  let tag = if inline {
+    "div"
+  } else if para.outline_level >= 0 && para.outline_level <= 8 {
+    "h\{para.outline_level + 1}"
+  } else {
+    "p"
+  }
   if style_str.length() > 0 {
     result <+ "<\{tag} class=\"\{class_str}\" style=\"\{style_str}\">"
   } else {
@@ -454,7 +501,8 @@ fn render_paragraph_html(para : ParagraphInfo, inline : Bool) -> String {
   result.to_string()
 }
 
-///| Render a text run to HTML with inline styles (faithful port of JS inlineStyleToCss)
+///|
+/// Render a text run to HTML with inline styles (faithful port of JS inlineStyleToCss)
 fn render_run_html(run : RenderRun) -> String {
   // line break: emit <br>
   if run.is_line_break {
@@ -475,10 +523,16 @@ fn render_run_html(run : RenderRun) -> String {
         // EMF: render as SVG placeholder with info (already converted by image processor)
         // Fall through to regular img rendering
       }
-      let placeholder_attr = if is_placeholder { " data-placeholder=\"true\"" } else { "" }
+      let placeholder_attr = if is_placeholder {
+        " data-placeholder=\"true\""
+      } else {
+        ""
+      }
       let size_attr = if run.image_width > 0 && run.image_height > 0 {
         " width=\"\{run.image_width}\" height=\"\{run.image_height}\""
-      } else { "" }
+      } else {
+        ""
+      }
       let img = "<img src=\"\{run.image_data_url}\" class=\"msdoc-image\" alt=\"image\" style=\"display:inline-block;vertical-align:middle;max-width:100%;height:auto;\"\{size_attr}\{placeholder_attr}>"
       if run.href.length() > 0 {
         return "<a class=\"msdoc-link\" href=\"\{escape_html_text(run.href)}\" target=\"_blank\" rel=\"noreferrer noopener\">\{img}</a>"
@@ -490,7 +544,11 @@ fn render_run_html(run : RenderRun) -> String {
   // attachment: emit <a> with download
   if run.is_attachment {
     if run.image_data_url.length() > 0 {
-      let label = if run.attachment_name.length() > 0 { run.attachment_name } else { "embedded-file" }
+      let label = if run.attachment_name.length() > 0 {
+        run.attachment_name
+      } else {
+        "embedded-file"
+      }
       if run.href.length() > 0 {
         return "<a href=\"\{run.image_data_url}\" class=\"msdoc-attachment\" download=\"\{escape_html_text(label)}\">\{escape_html_text(label)}</a>"
       }
@@ -503,7 +561,11 @@ fn render_run_html(run : RenderRun) -> String {
     Some(ff) => {
       match ff.field_type {
         "text" => {
-          let val = if ff.default_value.length() > 0 { escape_html_text(ff.default_value) } else { "" }
+          let val = if ff.default_value.length() > 0 {
+            escape_html_text(ff.default_value)
+          } else {
+            ""
+          }
           return "<span class=\"msdoc-form-field\"><input type=\"text\" value=\"\{val}\" class=\"msdoc-form-text\" readonly></span>"
         }
         "checkbox" => {
@@ -514,8 +576,13 @@ fn render_run_html(run : RenderRun) -> String {
           let options = StringBuilder::new()
           if ff.items.length() > 0 {
             for i in 0..<ff.items.length() {
-              let selected = if i == ff.selected_index { " selected" } else { "" }
-              options <+ "<option\{selected}>\{escape_html_text(ff.items[i])}</option>"
+              let selected = if i == ff.selected_index {
+                " selected"
+              } else {
+                ""
+              }
+              options <+
+                "<option\{selected}>\{escape_html_text(ff.items[i])}</option>"
             }
           }
           return "<span class=\"msdoc-form-field\"><select class=\"msdoc-form-dropdown\" disabled>\{options}</select></span>"
@@ -531,15 +598,59 @@ fn render_run_html(run : RenderRun) -> String {
   let is_bold = run.bold || run.bold_bi
   let is_italic = run.italic || run.italic_bi
   let is_strike = run.strike || run.double_strike
-  let is_underline = run.underline > 0 && underline_name(run.underline) != "none" && underline_name(run.underline) != "hidden"
+  let is_underline = run.underline > 0 &&
+    underline_name(run.underline) != "none" &&
+    underline_name(run.underline) != "hidden"
 
   // Layer 1: Try predefined CSS class for common formatting combos
   let mut used_class = ""
-  if is_bold && is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+  if is_bold &&
+    is_italic &&
+    !is_strike &&
+    !is_underline &&
+    !run.small_caps &&
+    !run.caps &&
+    run.scale == 100 &&
+    run.position_half_points == 0 &&
+    !run.superscript &&
+    !run.subscript &&
+    !run.outline &&
+    !run.shadow &&
+    !run.emboss &&
+    !run.imprint &&
+    !run.rtl {
     used_class = "msdoc-bi"
-  } else if is_bold && !is_italic && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+  } else if is_bold &&
+    !is_italic &&
+    !is_strike &&
+    !is_underline &&
+    !run.small_caps &&
+    !run.caps &&
+    run.scale == 100 &&
+    run.position_half_points == 0 &&
+    !run.superscript &&
+    !run.subscript &&
+    !run.outline &&
+    !run.shadow &&
+    !run.emboss &&
+    !run.imprint &&
+    !run.rtl {
     used_class = "msdoc-b"
-  } else if is_italic && !is_bold && !is_strike && !is_underline && !run.small_caps && !run.caps && run.scale == 100 && run.position_half_points == 0 && !run.superscript && !run.subscript && !run.outline && !run.shadow && !run.emboss && !run.imprint && !run.rtl {
+  } else if is_italic &&
+    !is_bold &&
+    !is_strike &&
+    !is_underline &&
+    !run.small_caps &&
+    !run.caps &&
+    run.scale == 100 &&
+    run.position_half_points == 0 &&
+    !run.superscript &&
+    !run.subscript &&
+    !run.outline &&
+    !run.shadow &&
+    !run.emboss &&
+    !run.imprint &&
+    !run.rtl {
     used_class = "msdoc-i"
   }
 
@@ -565,9 +676,17 @@ fn render_run_html(run : RenderRun) -> String {
         deco_line <+ "underline"
         deco_style_val = if name == "double" || name == "wavy-double" {
           "double"
-        } else if name == "dotted" || name == "dot-dash" || name == "dot-dot-dash" || name == "dotted-heavy" || name == "dot-dash-heavy" || name == "dot-dot-dash-heavy" {
+        } else if name == "dotted" ||
+          name == "dot-dash" ||
+          name == "dot-dot-dash" ||
+          name == "dotted-heavy" ||
+          name == "dot-dash-heavy" ||
+          name == "dot-dot-dash-heavy" {
           "dotted"
-        } else if name == "dash" || name == "dashed-heavy" || name == "dash-long" || name == "dash-long-heavy" {
+        } else if name == "dash" ||
+          name == "dashed-heavy" ||
+          name == "dash-long" ||
+          name == "dash-long-heavy" {
           "dashed"
         } else if name == "wave" || name == "wavy-heavy" {
           "wavy"
@@ -594,7 +713,7 @@ fn render_run_html(run : RenderRun) -> String {
     }
     // font-family
     if run.font_family.length() > 0 {
-      let escaped_font = run.font_family.replace(old = "'", new = "\\'")
+      let escaped_font = run.font_family.replace(old="'", new="\\'")
       style <+ "font-family:'\{escaped_font}',sans-serif;"
     }
     // color
@@ -634,7 +753,7 @@ fn render_run_html(run : RenderRun) -> String {
       }
     }
     if run.font_family.length() > 0 {
-      let escaped_font = run.font_family.replace(old = "'", new = "\\'")
+      let escaped_font = run.font_family.replace(old="'", new="\\'")
       style <+ "font-family:'\{escaped_font}',sans-serif;"
     }
     if run.color > 0 {
@@ -706,7 +825,8 @@ fn render_run_html(run : RenderRun) -> String {
   }
 }
 
-///| Render a table block to HTML
+///|
+/// Render a table block to HTML
 fn render_table_html(table : TableBlock) -> String {
   let result = StringBuilder::new()
   let depth_class = "msdoc-table-depth-\{table.depth}"
@@ -718,7 +838,9 @@ fn render_table_html(table : TableBlock) -> String {
   let mut table_bg_color = ""
   match table.table_state {
     Some(ts) => {
-      if ts.row_height > 0 { ignore(ts.row_height) }
+      if ts.row_height > 0 {
+        ignore(ts.row_height)
+      }
       // Use grid width from first row, or fall back to tableWidth SPRM
       if table.rows.length() > 0 && table.rows[0].grid_width_twips > 0 {
         table_width_px = twips_to_px_rounded(table.rows[0].grid_width_twips)
@@ -764,7 +886,8 @@ fn render_table_html(table : TableBlock) -> String {
     table_style = "\{table_style}background-color:\{table_bg_color};"
   }
 
-  result <+ "<table class=\"msdoc-table \{depth_class}\" style=\"\{table_style}\">"
+  result <+
+    "<table class=\"msdoc-table \{depth_class}\" style=\"\{table_style}\">"
   result <+ "<tbody>"
   for row in table.rows {
     // Per-row height: use row.row_height if available, else table-level
@@ -776,7 +899,11 @@ fn render_table_html(table : TableBlock) -> String {
     } else {
       match table.table_state {
         Some(ts) => {
-          let ts_rh = if ts.row_height < 0 { -ts.row_height } else { ts.row_height }
+          let ts_rh = if ts.row_height < 0 {
+            -ts.row_height
+          } else {
+            ts.row_height
+          }
           if ts_rh > 0 {
             row_height_px = twips_to_px_rounded(ts_rh)
           }
@@ -795,7 +922,9 @@ fn render_table_html(table : TableBlock) -> String {
       result <+ "<tr class=\"msdoc-row\">"
     }
     for cell in row.cells {
-      if cell.hidden { continue }
+      if cell.hidden {
+        continue
+      }
 
       let cell_style = StringBuilder::new()
 
@@ -819,12 +948,20 @@ fn render_table_html(table : TableBlock) -> String {
           // Borders from cell meta (brc80 format)
           if def.borders.length() >= 4 {
             // Helper to convert brc80 to CSS border string
-            let brc_to_css = fn(line_width : Int, border_type : Int, color_idx : Int) -> String? {
+            let brc_to_css = fn(
+              line_width : Int,
+              border_type : Int,
+              color_idx : Int,
+            ) -> String? {
               // Match JS formula: Math.max(1, Math.round(((lineWidth ?? 8) / 8) * 1.3333))
               let lw = if line_width <= 0 { 8 } else { line_width }
               let width_px = {
                 let w = (lw * 13333 + 40000) / 80000
-                if w < 1 { 1 } else { w }
+                if w < 1 {
+                  1
+                } else {
+                  w
+                }
               }
               let css_style = match border_type {
                 2 => "dashed"
@@ -839,29 +976,49 @@ fn render_table_html(table : TableBlock) -> String {
 
             if def.borders.length() >= 16 {
               // 16 bytes: 4 borders (top, left, bottom, right), each 4 bytes (brc80)
-              let top_border = brc_to_css(def.borders[0].to_int(), def.borders[1].to_int(), def.borders[2].to_int())
-              let left_border = brc_to_css(def.borders[4].to_int(), def.borders[5].to_int(), def.borders[6].to_int())
-              let bottom_border = brc_to_css(def.borders[8].to_int(), def.borders[9].to_int(), def.borders[10].to_int())
-              let right_border = brc_to_css(def.borders[12].to_int(), def.borders[13].to_int(), def.borders[14].to_int())
+              let top_border = brc_to_css(
+                def.borders[0].to_int(),
+                def.borders[1].to_int(),
+                def.borders[2].to_int(),
+              )
+              let left_border = brc_to_css(
+                def.borders[4].to_int(),
+                def.borders[5].to_int(),
+                def.borders[6].to_int(),
+              )
+              let bottom_border = brc_to_css(
+                def.borders[8].to_int(),
+                def.borders[9].to_int(),
+                def.borders[10].to_int(),
+              )
+              let right_border = brc_to_css(
+                def.borders[12].to_int(),
+                def.borders[13].to_int(),
+                def.borders[14].to_int(),
+              )
               match top_border {
-                Some(v) => { cell_style <+ "border-top:\{v};" }
+                Some(v) => cell_style <+ "border-top:\{v};"
                 None => ignore(0)
               }
               match left_border {
-                Some(v) => { cell_style <+ "border-left:\{v};" }
+                Some(v) => cell_style <+ "border-left:\{v};"
                 None => ignore(0)
               }
               match bottom_border {
-                Some(v) => { cell_style <+ "border-bottom:\{v};" }
+                Some(v) => cell_style <+ "border-bottom:\{v};"
                 None => ignore(0)
               }
               match right_border {
-                Some(v) => { cell_style <+ "border-right:\{v};" }
+                Some(v) => cell_style <+ "border-right:\{v};"
                 None => ignore(0)
               }
             } else {
               // 4 bytes: single brc80 value applied to all borders
-              let border_css = brc_to_css(def.borders[0].to_int(), def.borders[1].to_int(), def.borders[2].to_int())
+              let border_css = brc_to_css(
+                def.borders[0].to_int(),
+                def.borders[1].to_int(),
+                def.borders[2].to_int(),
+              )
               match border_css {
                 Some(v) => {
                   cell_style <+ "border-top:\{v};"
@@ -877,13 +1034,14 @@ fn render_table_html(table : TableBlock) -> String {
           if def.shading.length() >= 1 {
             let color_index = def.shading[0].to_int()
             if color_index > 0 {
-              cell_style <+ "background-color:\{color_index_to_hex(color_index)};"
+              cell_style <+
+                "background-color:\{color_index_to_hex(color_index)};"
             }
           }
 
           // Cell padding from table state (if available)
           match table.table_state {
-            Some(ts) => {
+            Some(ts) =>
               if ts.cell_padding.length() >= 4 {
                 let pt = ts.cell_padding[0]
                 let pl = ts.cell_padding[1]
@@ -894,10 +1052,10 @@ fn render_table_html(table : TableBlock) -> String {
                   let pl_px = if pl > 0 { twips_to_px_rounded(pl) } else { 0 }
                   let pb_px = if pb > 0 { twips_to_px_rounded(pb) } else { 0 }
                   let pr_px = if pr > 0 { twips_to_px_rounded(pr) } else { 0 }
-                  cell_style <+ "padding:\{pt_px}px \{pr_px}px \{pb_px}px \{pl_px}px;"
+                  cell_style <+
+                    "padding:\{pt_px}px \{pr_px}px \{pb_px}px \{pl_px}px;"
                 }
               }
-            }
             None => ignore(0)
           }
 
@@ -919,9 +1077,14 @@ fn render_table_html(table : TableBlock) -> String {
       let colspan_attr = if cs > 1 { " colspan=\"\{cs}\"" } else { "" }
       let rowspan_attr = if rs > 1 { " rowspan=\"\{rs}\"" } else { "" }
       let style_str = cell_style.to_string()
-      let style_attr = if style_str.length() > 0 { " style=\"\{style_str}\"" } else { "" }
+      let style_attr = if style_str.length() > 0 {
+        " style=\"\{style_str}\""
+      } else {
+        ""
+      }
 
-      result <+ "<td class=\"msdoc-cell\"\{colspan_attr}\{rowspan_attr}\{style_attr}>"
+      result <+
+        "<td class=\"msdoc-cell\"\{colspan_attr}\{rowspan_attr}\{style_attr}>"
       if cell.paragraphs.length() > 0 {
         for para in cell.paragraphs {
           result <+ "\{render_paragraph_html(para, true)}"

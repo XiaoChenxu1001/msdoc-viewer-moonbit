@@ -1,16 +1,28 @@
 ///| Table construction from parsed paragraphs
+
 ///| Extracted from parser.mbt for better organization
 
-///| Get table nesting depth from paragraph
+///|
+/// Get table nesting depth from paragraph
 pub fn get_para_table_depth(para : ParagraphInfo) -> Int {
-  if !para.in_table { return 0 }
-  if para.itap > 0 { para.itap }
-  else if para.dtap > 0 { para.dtap }
-  else { 1 }
+  if !para.in_table {
+    return 0
+  }
+  if para.itap > 0 {
+    para.itap
+  } else if para.dtap > 0 {
+    para.dtap
+  } else {
+    1
+  }
 }
 
-///| Build blocks from paragraphs, grouping table paragraphs
-pub fn build_blocks(paragraphs : Array[ParagraphInfo], styles : StyleCollection) -> Array[Block] {
+///|
+/// Build blocks from paragraphs, grouping table paragraphs
+pub fn build_blocks(
+  paragraphs : Array[ParagraphInfo],
+  styles : StyleCollection,
+) -> Array[Block] {
   let blocks = Array::new()
   let mut index = 0
   while index < paragraphs.length() {
@@ -22,7 +34,8 @@ pub fn build_blocks(paragraphs : Array[ParagraphInfo], styles : StyleCollection)
       continue
     }
     let table_paras = Array::new()
-    while index < paragraphs.length() && get_para_table_depth(paragraphs[index]) > 0 {
+    while index < paragraphs.length() &&
+          get_para_table_depth(paragraphs[index]) > 0 {
       table_paras.push(paragraphs[index])
       index += 1
     }
@@ -32,16 +45,23 @@ pub fn build_blocks(paragraphs : Array[ParagraphInfo], styles : StyleCollection)
   blocks
 }
 
-///| Build a table block from table paragraphs
-pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : StyleCollection) -> TableBlock {
+///|
+/// Build a table block from table paragraphs
+pub fn build_table_block(
+  paras : Array[ParagraphInfo],
+  depth : Int,
+  styles : StyleCollection,
+) -> TableBlock {
   let rows = Array::new()
   let mut current_cell_paras = Array::new()
   let mut current_row_cells = Array::new()
-  let mut pending_table_state : Option[TableState] = None
+  let mut pending_table_state : TableState? = None
 
   for para in paras {
     // Detect table state with style inheritance (matches JS buildParagraphModel)
-    if pending_table_state is None && para.itap >= 1 && para.raw_papx.length() > 0 {
+    if pending_table_state is None &&
+      para.itap >= 1 &&
+      para.raw_papx.length() > 0 {
       let raw_view = para.raw_papx.view()
       let decoded = decode_grpprl(raw_view)
       let direct_ts = table_props_from_decoded_impl(decoded, para.raw_papx)
@@ -51,7 +71,8 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
         let merged = merge_property_arrays([resolved.table_props, decoded])
         let merged_ts = table_props_from_decoded(merged)
         // Preserve defTable bytes from direct scan (merged loses raw bytes)
-        if merged_ts.def_table_bytes.length() == 0 && direct_ts.def_table_bytes.length() > 0 {
+        if merged_ts.def_table_bytes.length() == 0 &&
+          direct_ts.def_table_bytes.length() > 0 {
           TableState::{
             style_id: merged_ts.style_id,
             indent: merged_ts.indent,
@@ -102,7 +123,8 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
           let resolved2 = resolve_style(styles, direct_ts2.style_id)
           let merged2 = merge_property_arrays([resolved2.table_props, decoded2])
           let merged_ts2 = table_props_from_decoded(merged2)
-          if merged_ts2.def_table_bytes.length() == 0 && direct_ts2.def_table_bytes.length() > 0 {
+          if merged_ts2.def_table_bytes.length() == 0 &&
+            direct_ts2.def_table_bytes.length() > 0 {
             TableState::{
               style_id: merged_ts2.style_id,
               indent: merged_ts2.indent,
@@ -135,7 +157,8 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
         // Apply cell definitions to this row
         let cell_defs = apply_table_state_to_cells(effective_ts)
         // Prune empty trailing cells (matches JS: pendingRow.cells.pop() while empty)
-          if cell_defs.length() > 0 && cell_defs.length() < current_row_cells.length() {
+        if cell_defs.length() > 0 &&
+          cell_defs.length() < current_row_cells.length() {
           while current_row_cells.length() > cell_defs.length() {
             let last_cell = current_row_cells[current_row_cells.length() - 1]
             let mut is_empty = true
@@ -153,7 +176,10 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
                   }
                   ci2 += 1
                 }
-                if has_non_control || r.is_line_break || r.is_page_break || r.href.length() > 0 {
+                if has_non_control ||
+                  r.is_line_break ||
+                  r.is_page_break ||
+                  r.href.length() > 0 {
                   has_content = true
                   break
                 }
@@ -195,7 +221,12 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
         }
         rows.push(TableRow::{
           cells: final_cells,
-          grid_width_twips: if cell_defs.length() > 0 { cell_defs[cell_defs.length() - 1].right_boundary - cell_defs[0].left_boundary } else { 0 },
+          grid_width_twips: if cell_defs.length() > 0 {
+            cell_defs[cell_defs.length() - 1].right_boundary -
+            cell_defs[0].left_boundary
+          } else {
+            0
+          },
           row_height: effective_ts.row_height,
         })
         current_row_cells = Array::new()
@@ -236,11 +267,7 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
         hidden: false,
       })
     }
-    rows.push(TableRow::{
-      cells,
-      grid_width_twips: 0,
-      row_height: 0,
-    })
+    rows.push(TableRow::{ cells, grid_width_twips: 0, row_height: 0 })
   }
 
   // Apply table state to remaining rows without meta (trailing row without row_end marker)
@@ -256,8 +283,12 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
               Some(_) => true
               None => false
             }
-          } else { false }
-          if already_processed { continue }
+          } else {
+            false
+          }
+          if already_processed {
+            continue
+          }
           if cell_defs.length() < row.cells.length() {
             while row.cells.length() > cell_defs.length() {
               let last_cell = row.cells[row.cells.length() - 1]
@@ -294,7 +325,12 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
           }
           rows[ri] = TableRow::{
             cells: new_cells,
-            grid_width_twips: if cell_defs.length() > 0 { cell_defs[cell_defs.length() - 1].right_boundary - cell_defs[0].left_boundary } else { 0 },
+            grid_width_twips: if cell_defs.length() > 0 {
+              cell_defs[cell_defs.length() - 1].right_boundary -
+              cell_defs[0].left_boundary
+            } else {
+              0
+            },
             row_height: rows[ri].row_height,
           }
         }
@@ -309,9 +345,12 @@ pub fn build_table_block(paras : Array[ParagraphInfo], depth : Int, styles : Sty
   TableBlock::{ rows, depth, table_state: pending_table_state }
 }
 
-///| Finalize table grid: compute horizontal merge (colspan) and vertical merge (rowspan)
+///|
+/// Finalize table grid: compute horizontal merge (colspan) and vertical merge (rowspan)
 fn finalize_table_grid(rows : Array[TableRow]) -> Unit {
-  if rows.length() == 0 { return }
+  if rows.length() == 0 {
+    return
+  }
 
   // Find maximum column count across all rows
   let mut max_cols = 0
@@ -425,7 +464,9 @@ fn finalize_table_grid(rows : Array[TableRow]) -> Unit {
     let row = rows[ri]
     for ci in 0..<row.cells.length() {
       let cell = row.cells[ci]
-      if cell.hidden { continue }
+      if cell.hidden {
+        continue
+      }
       let vmerge_val = match cell.meta {
         Some(def) => def.vert_merge
         None => 0
@@ -464,7 +505,9 @@ fn finalize_table_grid(rows : Array[TableRow]) -> Unit {
             }
             col += 1
           }
-          if !can_merge { break }
+          if !can_merge {
+            break
+          }
           let mut col2 = cell_col
           while col2 < cell_col + cell_span {
             let below_cell = below_row.cells[col2]

@@ -1,7 +1,9 @@
 ///| EMF/WMF Server-side converter
+
 ///| Handles conversion of EMF/WMF images via server API
 
-///| Conversion result
+///|
+/// Conversion result
 pub struct EmfConvertResult {
   success : Bool
   data : FixedArray[Byte]
@@ -10,7 +12,8 @@ pub struct EmfConvertResult {
   from_cache : Bool
 }
 
-///| Health check result
+///|
+/// Health check result
 pub struct EmfHealthCheckResult {
   status : String
   engine : String
@@ -19,7 +22,9 @@ pub struct EmfHealthCheckResult {
 }
 
 ///| Convert EMF/WMF to target format using server API
-///| This is the main entry point for server-side conversion
+
+///|
+/// This is the main entry point for server-side conversion
 pub fn convert_emf_server(
   bytes : FixedArray[Byte],
   mime : String,
@@ -35,7 +40,7 @@ pub fn convert_emf_server(
       from_cache: false,
     }
   }
-  
+
   if bytes.length() == 0 {
     return EmfConvertResult::{
       success: false,
@@ -45,7 +50,7 @@ pub fn convert_emf_server(
       from_cache: false,
     }
   }
-  
+
   if bytes.length() > config.max_file_size {
     return EmfConvertResult::{
       success: false,
@@ -55,7 +60,7 @@ pub fn convert_emf_server(
       from_cache: false,
     }
   }
-  
+
   if !needs_server_conversion(mime) {
     return EmfConvertResult::{
       success: false,
@@ -65,7 +70,7 @@ pub fn convert_emf_server(
       from_cache: false,
     }
   }
-  
+
   // Check cache if enabled
   if config.enable_cache {
     let cache_key = compute_content_hash(bytes)
@@ -81,7 +86,7 @@ pub fn convert_emf_server(
     // }
     ignore(cache_key)
   }
-  
+
   // In production, this would make an HTTP request to the server
   // For now, return a placeholder indicating the server call would happen
   EmfConvertResult::{
@@ -94,8 +99,12 @@ pub fn convert_emf_server(
 }
 
 ///| Check server health
-///| Returns health check result or error
-pub fn check_emf_server_health(config : EmfConverterConfig) -> EmfHealthCheckResult {
+
+///|
+/// Returns health check result or error
+pub fn check_emf_server_health(
+  config : EmfConverterConfig,
+) -> EmfHealthCheckResult {
   if !config.enabled || config.server_url.length() == 0 {
     return EmfHealthCheckResult::{
       status: "disabled",
@@ -104,7 +113,7 @@ pub fn check_emf_server_health(config : EmfConverterConfig) -> EmfHealthCheckRes
       supported_formats: [],
     }
   }
-  
+
   // In production, this would make an HTTP GET to the health endpoint
   // For now, return a placeholder
   EmfHealthCheckResult::{
@@ -115,23 +124,28 @@ pub fn check_emf_server_health(config : EmfConverterConfig) -> EmfHealthCheckRes
   }
 }
 
-///| Build conversion request URL
+///|
+/// Build conversion request URL
 fn build_conversion_url(config : EmfConverterConfig) -> String {
   "\{config.server_url}/api/convert/emf"
 }
 
-///| Build health check URL
+///|
+/// Build health check URL
 fn build_health_url(config : EmfConverterConfig) -> String {
   "\{config.server_url}/api/convert/health"
 }
 
-///| Get target format header value
+///|
+/// Get target format header value
 fn get_target_format_header(config : EmfConverterConfig) -> String {
   target_format_to_string(config.target_format)
 }
 
 ///| Process EMF with server conversion and fallback
-///| This is the main processing function that handles the full flow
+
+///|
+/// This is the main processing function that handles the full flow
 pub fn process_emf_with_server(
   bytes : FixedArray[Byte],
   mime : String,
@@ -142,10 +156,10 @@ pub fn process_emf_with_server(
   if !config.enabled || local_result.success {
     return local_result
   }
-  
+
   // Try server conversion
   let server_result = convert_emf_server(bytes, mime, config)
-  
+
   if server_result.success {
     return ImageProcessResult::{
       bytes: server_result.data,
@@ -155,13 +169,13 @@ pub fn process_emf_with_server(
       fallback_url: "",
     }
   }
-  
+
   // Server failed, check if we should fallback
   if config.fallback_to_placeholder {
     // Return the local result (which should have fallback_url set)
     return local_result
   }
-  
+
   // No fallback, return server error
   ImageProcessResult::{
     bytes: [],

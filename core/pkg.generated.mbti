@@ -1,0 +1,1335 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "msdoc-viewer/core"
+
+// Values
+pub const DIFSECT : Int = 0xFFFFFFFC
+
+pub const DOC_CONTROL_ANNOTATION_REF : Int = 0x0005
+
+pub const DOC_CONTROL_CELL_MARK : Int = 0x0007
+
+pub const DOC_CONTROL_FIELD_END : Int = 0x0015
+
+pub const DOC_CONTROL_FIELD_SEPARATOR : Int = 0x0014
+
+pub const DOC_CONTROL_FIELD_START : Int = 0x0013
+
+pub const DOC_CONTROL_HARD_LINE_BREAK : Int = 0x000B
+
+pub const DOC_CONTROL_NON_BREAKING_HYPHEN : Int = 0x001E
+
+pub const DOC_CONTROL_NON_REQUIRED_HYPHEN : Int = 0x001F
+
+pub const DOC_CONTROL_PAGE_BREAK : Int = 0x000C
+
+pub const DOC_CONTROL_PARAGRAPH : Int = 0x000D
+
+pub const DOC_CONTROL_PICTURE : Int = 0x0001
+
+pub const ENDOFCHAIN : Int = 0xFFFFFFFE
+
+pub const FATSECT : Int = 0xFFFFFFFD
+
+pub const FIELD_TYPE_EMBED : String = "embed"
+
+pub const FIELD_TYPE_HYPERLINK : String = "hyperlink"
+
+pub const FIELD_TYPE_INCLUDE_PICTURE : String = "includePicture"
+
+pub const FIELD_TYPE_LINK : String = "link"
+
+pub const FREESECT : Int = 0xFFFFFFFF
+
+pub const MAX_CHAIN_SECTORS : Int = 1048576
+
+pub const MINI_STREAM_CUTOFF : Int = 4096
+
+pub fn align_even(Int) -> Int
+
+pub fn alignment_css(Int) -> String
+
+pub fn apply_table_state_to_cells(TableState) -> Array[TableCellDef]
+
+pub fn bench_build_all_segments(ParseIntermediate) -> Int
+
+pub fn bench_cfb_parse(FixedArray[Byte]) -> CFBContainer raise
+
+pub fn bench_config_default() -> ImageProcessorConfig
+
+pub fn bench_config_download_link() -> ImageProcessorConfig
+
+pub fn bench_config_extract_bitmap() -> ImageProcessorConfig
+
+pub fn bench_config_keep_original() -> ImageProcessorConfig
+
+pub fn bench_count_cfb_entries(CFBContainer) -> Int
+
+pub fn bench_count_pool_entries(CFBContainer) -> Int
+
+pub fn bench_diagnose_txbx(FixedArray[Byte]) -> String raise
+
+pub fn bench_extract_object_pool(CFBContainer) -> Map[String, Asset]
+
+pub fn bench_get_data_stream(CFBContainer) -> FixedArray[Byte]
+
+pub fn bench_get_diagnostics(MsDocParseResult) -> ParseDiagnostics
+
+pub fn bench_get_table_stream(CFBContainer) -> FixedArray[Byte]
+
+pub fn bench_get_textbox_count(MsDocParseResult) -> Int
+
+pub fn bench_get_textbox_info(MsDocParseResult) -> String
+
+pub fn bench_get_word_doc_stream(CFBContainer) -> FixedArray[Byte]
+
+pub fn bench_paragraph_loop(ParseIntermediate) -> Array[ParagraphInfo]
+
+pub fn bench_parse(FixedArray[Byte]) -> MsDocParseResult raise
+
+pub fn bench_parse_intermediate(FixedArray[Byte]) -> ParseIntermediate raise
+
+pub fn bench_process_all_fields(ParseIntermediate) -> Int
+
+pub fn bench_render(FixedArray[Byte]) -> RenderResult raise
+
+pub fn bench_resolve_all_papx(ParseIntermediate) -> Int
+
+pub fn build_blocks(Array[ParagraphInfo], StyleCollection) -> Array[Block]
+
+pub fn build_table_block(Array[ParagraphInfo], Int, StyleCollection) -> TableBlock
+
+pub fn bytes_to_base64(FixedArray[Byte]) -> String
+
+pub fn cache_cleanup(EmfConverterCache) -> Unit
+
+pub fn cache_get(EmfConverterCache, String) -> (FixedArray[Byte], String)?
+
+pub fn cache_set(EmfConverterCache, String, FixedArray[Byte], String) -> Unit
+
+pub fn cache_stats(EmfConverterCache) -> (Int, Int)
+
+pub fn calculate_display_dimensions(Int, Int, Int, Int) -> (Int, Int)
+
+pub fn cfb_find_by_name(CFBContainer, String) -> CFBEntry?
+
+pub fn cfb_find_entry(CFBContainer, String) -> CFBEntry?
+
+pub fn cfb_find_entry_exact(CFBContainer, String) -> CFBEntry?
+
+pub fn cfb_get_entry(CFBContainer, String) -> CFBEntry?
+
+pub fn cfb_get_stream(CFBContainer, String) -> FixedArray[Byte]?
+
+pub fn cfb_get_stream_by_id(CFBContainer, Int) -> FixedArray[Byte]?
+
+pub fn cfb_list_children(CFBContainer, CFBEntry) -> Array[CFBEntry]
+
+pub fn char_props_from_decoded(Array[DecodedProperty]) -> CharState
+
+pub fn char_props_to_state(Array[Byte]) -> CharState
+
+pub fn check_emf_server_health(EmfConverterConfig) -> EmfHealthCheckResult
+
+pub fn clamp(Int, Int, Int) -> Int
+
+pub fn color_index_to_hex(Int) -> String
+
+pub fn compute_content_hash(FixedArray[Byte]) -> String
+
+pub fn convert_emf_server(FixedArray[Byte], String, EmfConverterConfig) -> EmfConvertResult
+
+pub fn count_placeholder_assets(Array[Asset]) -> Int
+
+pub fn create_emf_cache(Int) -> EmfConverterCache
+
+pub fn create_emf_converter_config(String) -> EmfConverterConfig
+
+pub fn create_emf_placeholder(FixedArray[Byte], String) -> String
+
+pub fn create_emf_placeholder_url(FixedArray[Byte], String) -> String
+
+pub fn create_image_extractor(FixedArray[Byte]) -> ImageExtractor
+
+pub fn create_image_extractor_with_config(FixedArray[Byte], ImageProcessorConfig) -> ImageExtractor
+
+pub fn create_placeholder_asset(Int) -> Asset
+
+pub fn css_text_align(Int) -> String
+
+pub fn css_underline(Int) -> String
+
+pub fn css_vertical_align(Int) -> String
+
+pub fn data_url_from_bytes(FixedArray[Byte], String) -> String
+
+pub fn decode_grpprl(ArrayView[Byte]) -> Array[DecodedProperty]
+
+pub fn decode_sprm(Int, ArrayView[Byte]) -> DecodedProperty
+
+pub fn default_emf_converter_config() -> EmfConverterConfig
+
+pub fn default_font_family(Int) -> String
+
+pub fn default_image_config() -> ImageProcessorConfig
+
+pub fn detect_image_format(FixedArray[Byte]) -> String
+
+pub fn detect_image_segment(FixedArray[Byte]) -> ImageSegment?
+
+pub fn detect_mime_from_bytes(FixedArray[Byte]) -> String
+
+pub fn escape_html_text(String) -> String
+
+pub fn extract_all_deferred_images(DeferredParseResult) -> Array[Asset] raise
+
+pub fn extract_all_subdocuments(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int, Int, Int, Int, Int) -> (String, String, String, String, String, String)
+
+pub fn extract_comment_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int, Int) -> String
+
+pub fn extract_deferred_image(DeferredParseResult, Int) -> Asset?
+
+pub fn extract_endnote_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int, Int, Int) -> String
+
+pub fn extract_footnote_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int) -> String
+
+pub fn extract_header_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int) -> String
+
+pub fn extract_header_textbox_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int, Int, Int, Int, Int) -> String
+
+pub fn extract_image(ImageExtractor, Int) -> Asset?
+
+pub fn extract_image_dimensions(FixedArray[Byte]) -> (Int, Int)
+
+pub fn extract_image_with_fallback(MsDocParseResult, Int) -> Asset
+
+pub fn extract_object_pool(CFBContainer) -> Map[String, Asset]
+
+pub fn extract_pic_dimensions(FixedArray[Byte], Int) -> (Int, Int, Int, Int)?
+
+pub fn extract_picture_asset(FixedArray[Byte], Int) -> Asset?
+
+pub fn extract_picture_asset_deferred(FixedArray[Byte], Int) -> Asset?
+
+pub fn extract_picture_asset_with_config(FixedArray[Byte], Int, ImageProcessorConfig) -> Asset?
+
+pub fn extract_piece_text(FixedArray[Byte], Piece) -> String
+
+pub fn extract_raw_image_asset(FixedArray[Byte], Int) -> Asset?
+
+pub fn extract_subdocument_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int) -> String
+
+pub fn extract_textbox_text(FixedArray[Byte], Array[Int], BinaryReader, Int, Int, Int, Int, Int, Int, Int) -> String
+
+pub fn fc_to_cp(Array[PieceEntry], Int) -> Int
+
+pub fn font_by_index(FontsCollection, Int) -> Font?
+
+pub fn get_default_css() -> String
+
+pub fn get_deferred_result(DeferredParseResult) -> MsDocParseResult
+
+pub fn get_para_table_depth(ParagraphInfo) -> Int
+
+pub fn get_sprm_kind(Int) -> String
+
+pub fn get_sprm_operand_length(Int) -> Int
+
+pub fn get_style(StyleCollection, Int) -> StyleDefinition?
+
+pub fn get_style_by_name(StyleCollection, String) -> StyleDefinition?
+
+pub fn highlight_color(Int) -> String
+
+pub fn highlight_color_to_hex(Int) -> String
+
+pub fn is_placeholder_asset(Asset) -> Bool
+
+pub fn is_special_sector_id(Int) -> Bool
+
+pub fn merge_property_arrays(Array[Array[DecodedProperty]]) -> Array[DecodedProperty]
+
+pub fn needs_processing(String) -> Bool
+
+pub fn needs_server_conversion(String) -> Bool
+
+pub fn noop_logger() -> Logger
+
+pub fn para_props_from_decoded(Array[DecodedProperty]) -> ParaState
+
+pub fn para_props_to_state(Array[Byte]) -> ParaState
+
+pub fn parse_brc80(FixedArray[Byte], Int) -> Brc80Data
+
+pub fn parse_cfb(FixedArray[Byte], Array[String]) -> CFBContainer raise
+
+pub fn parse_ffdata(FixedArray[Byte]) -> FFDataInfo?
+
+pub fn parse_fib(FixedArray[Byte]) -> FIB raise
+
+pub fn parse_fonts(FixedArray[Byte], Int, Int) -> FontsCollection
+
+pub fn parse_fonts_from_fib(FixedArray[Byte], BinaryReader, Int) -> FontsCollection
+
+pub fn parse_hfd(FixedArray[Byte]) -> HFDInfo?
+
+pub fn parse_itc_first_lim(FixedArray[Byte], Int) -> ItcRange
+
+pub fn parse_ms_doc(FixedArray[Byte]) -> MsDocParseResult raise
+
+pub fn parse_ms_doc_deferred(FixedArray[Byte]) -> DeferredParseResult raise
+
+pub fn parse_ms_doc_deferred_with_config(FixedArray[Byte], ImageProcessorConfig) -> DeferredParseResult raise
+
+pub fn parse_ms_doc_to_html(FixedArray[Byte]) -> String raise
+
+pub fn parse_ole10_native(FixedArray[Byte]) -> OLE10Info?
+
+pub fn parse_range_brc_operand(FixedArray[Byte]) -> RangeBrcOperand
+
+pub fn parse_range_value_operand(FixedArray[Byte]) -> RangeValueOperand
+
+pub fn parse_range_width_operand(FixedArray[Byte]) -> RangeWidthOperand
+
+pub fn parse_sections(BinaryReader, Int, FixedArray[Byte], FixedArray[Byte]) -> Array[SectionProperties]
+
+pub fn parse_styles(ArrayView[Byte]) -> StyleCollection
+
+pub fn parse_summary_info(FixedArray[Byte]) -> SummaryInfo?
+
+pub fn parse_target_format(String) -> EmfTargetFormat?
+
+pub fn parse_tc80(FixedArray[Byte], Int) -> Tc80Data
+
+pub fn parse_tcgrf(FixedArray[Byte], Int) -> TcgrfData
+
+pub fn parse_tdef_table_operand(FixedArray[Byte]) -> TDefTableOperand
+
+pub fn parse_ttable_width_operand(FixedArray[Byte]) -> TTableWidthOperand
+
+pub fn points_to_px(Int, Int) -> Int?
+
+pub fn pre_resolve_all_styles(StyleCollection) -> Map[Int, ResolvedStyle]
+
+pub fn preload_all_images(MsDocParseResult) -> Array[Asset]
+
+pub fn process_all_asset_images(Array[Asset]) -> Array[Asset]
+
+pub fn process_all_raw_images(Array[Asset]) -> Array[Asset]
+
+pub fn process_asset_image(Asset) -> String
+
+pub fn process_emf_with_server(FixedArray[Byte], String, EmfConverterConfig, ImageProcessResult) -> ImageProcessResult
+
+pub fn process_image(FixedArray[Byte], String, ImageProcessorConfig) -> ImageProcessResult
+
+pub fn process_raw_image_asset(Asset) -> Asset
+
+pub fn push_warning(Array[String], String) -> String
+
+pub fn read_chpx_decoded(FixedArray[Byte], Int) -> Array[DecodedProperty]
+
+pub fn read_chpx_properties(FixedArray[Byte], Int) -> Array[Byte]
+
+pub fn read_chpx_runs(FixedArray[Byte], FixedArray[Byte], FIB, CLX) -> Array[ChpxRun]
+
+pub fn read_chpx_runs_fallback(FixedArray[Byte], FixedArray[Byte], Int, Array[PieceEntry]) -> Array[ChpxRun]
+
+pub fn read_papx_properties(FixedArray[Byte], Int) -> (Int, Array[Byte])
+
+pub fn read_papx_runs(FixedArray[Byte], FixedArray[Byte], FIB, CLX) -> Array[PapxRun]
+
+pub fn read_papx_runs_fallback(FixedArray[Byte], FixedArray[Byte], Int, Array[PieceEntry]) -> Array[PapxRun]
+
+pub fn render_ms_doc(FixedArray[Byte]) -> RenderResult raise
+
+pub fn render_ms_doc_with_css(FixedArray[Byte], String) -> RenderResult raise
+
+pub fn render_parsed(MsDocParseResult) -> RenderResult
+
+pub fn render_parsed_with_css(MsDocParseResult, String) -> RenderResult
+
+pub fn resolve_style(StyleCollection, Int) -> ResolvedStyle
+
+pub fn resolve_style_from_cache(Map[Int, ResolvedStyle], Int) -> ResolvedStyle
+
+pub fn slugify(String) -> String
+
+pub fn split_properties_by_kind(Array[DecodedProperty]) -> (Array[DecodedProperty], Array[DecodedProperty], Array[DecodedProperty])
+
+pub fn table_props_from_decoded(Array[DecodedProperty]) -> TableState
+
+pub fn target_format_to_string(EmfTargetFormat) -> String
+
+pub fn twips_to_px(Int, Int) -> Int?
+
+pub fn twips_to_px_rounded(Int) -> Int
+
+pub fn underline_name(Int) -> String
+
+pub fn validate_emf_converter_config(EmfConverterConfig) -> Array[String]
+
+pub fn vertical_align_css(Int) -> String
+
+// Errors
+pub(all) suberror CfbError {
+  CfbError(String)
+}
+
+// Types and methods
+pub struct Asset {
+  id : String
+  asset_type : String
+  name : String
+  mime : String
+  bytes : FixedArray[Byte]
+  data_url : String
+  width : Int
+  height : Int
+}
+
+type AssetResolver
+
+pub struct BinaryReader {
+  bytes : ArrayView[Byte]
+  length : Int
+}
+pub fn[T] BinaryReader::array(Self, Int, Int, (Self, Int) -> T) -> Array[T]
+pub fn BinaryReader::ascii(Self, Int, Int) -> String
+pub fn BinaryReader::ensure(Self, Int, Int) -> Bool
+pub fn BinaryReader::from_view(ArrayView[Byte]) -> Self
+pub fn BinaryReader::i16(Self, Int) -> Int
+pub fn BinaryReader::i32(Self, Int) -> Int
+pub fn BinaryReader::i8(Self, Int) -> Int
+pub fn BinaryReader::latin1(Self, Int, Int) -> String
+pub fn BinaryReader::make(FixedArray[Byte]) -> Self
+pub fn BinaryReader::slice(Self, Int, Int) -> ArrayView[Byte]
+pub fn BinaryReader::u16(Self, Int) -> Int
+pub fn BinaryReader::u32(Self, Int) -> Int
+pub fn BinaryReader::u64(Self, Int) -> Int64
+pub fn BinaryReader::u8(Self, Int) -> Int
+pub fn BinaryReader::utf16le(Self, Int, Int) -> String
+pub fn BinaryReader::utf16z(Self, Int, Int) -> String
+
+pub enum Block {
+  Paragraph(ParagraphInfo)
+  Table(TableBlock)
+  Attachments(Array[Asset])
+}
+
+pub struct Brc80Data {
+  raw : Int
+  line_width : Int
+  border_type : Int
+  color : Int
+}
+
+pub struct CFBContainer {
+  bytes : FixedArray[Byte]
+  major_version : Int
+  sector_size : Int
+  mini_sector_size : Int
+  mini_stream_cutoff_size : Int
+  warnings : Array[String]
+  entries : Array[CFBEntry]
+  root_id : Int
+  fat : Array[Int]
+  mini_fat : Array[Int]
+  root_stream_bytes : FixedArray[Byte]
+  stream_map : Map[String, Int]
+}
+
+pub struct CFBEntry {
+  id : Int
+  name : String
+  object_type : Int
+  color_flag : Int
+  left_sibling_id : Int
+  right_sibling_id : Int
+  child_id : Int
+  start_sector : Int
+  stream_size : Int
+}
+
+pub struct CLX {
+  pcdt_lcb : Int
+  piece_table : PieceTable
+}
+
+type CacheEntry
+
+type CharSegment
+
+pub struct CharState {
+  bold : Bool
+  italic : Bool
+  underline : Int
+  strike : Bool
+  double_strike : Bool
+  font_size : Int
+  font_family_id : Int
+  font_family : String
+  color : Int
+  highlight : Int
+  superscript : Bool
+  subscript : Bool
+  hidden : Bool
+  small_caps : Bool
+  caps : Bool
+  outline : Bool
+  shadow : Bool
+  emboss : Bool
+  imprint : Bool
+  spacing : Int
+  position_half_points : Int
+  scale : Int
+  picture_offset : Int
+  rtl : Bool
+  bold_bi : Bool
+  italic_bi : Bool
+  char_style_id : Int
+  is_ole2 : Bool
+  is_data : Bool
+  is_object : Bool
+}
+
+pub struct ChpxRun {
+  cp_start : Int
+  cp_end : Int
+  fc_start : Int
+  fc_end : Int
+  properties : Array[DecodedProperty]
+}
+
+pub struct Comment {
+  anchor_cp : Int
+  text : String
+  author : String
+  comment_index : Int
+  parent_index : Int
+}
+
+pub struct DecodedProperty {
+  name : String
+  value : Int
+  extra : String
+  kind : String
+  range : ItcRange?
+  operand_bytes : Array[Byte]?
+}
+
+pub struct DeferredParseResult {
+  result : MsDocParseResult
+  data_bytes : FixedArray[Byte]
+  image_config : ImageProcessorConfig
+  image_cache : Map[Int, Asset]
+}
+
+pub struct DocTableCell {
+  paragraphs : Array[ParagraphInfo]
+  meta : TableCellDef?
+  col_index : Int
+  colspan : Int
+  rowspan : Int
+  hidden : Bool
+}
+
+pub struct EmfConvertResult {
+  success : Bool
+  data : FixedArray[Byte]
+  mime : String
+  error : String
+  from_cache : Bool
+}
+
+pub struct EmfConverterCache {
+  entries : Map[String, CacheEntry]
+  expiry_ms : Int
+}
+
+pub struct EmfConverterConfig {
+  enabled : Bool
+  server_url : String
+  target_format : EmfTargetFormat
+  timeout_ms : Int
+  fallback_to_placeholder : Bool
+  enable_cache : Bool
+  cache_expiry_ms : Int
+  max_file_size : Int
+}
+
+pub struct EmfHealthCheckResult {
+  status : String
+  engine : String
+  version : String
+  supported_formats : Array[String]
+}
+
+pub enum EmfTargetFormat {
+  Svg
+  Png
+  Jpeg
+} derive(Eq, Show)
+
+type FFDataInfo
+
+pub struct FIB {
+  base : FIBBase
+  csw : Int
+  cslw : Int
+  cb_rg_fc_lcb : Int
+  csw_new : Int
+  n_fib_new : Int
+  fib_rg_lw : FIBRgLw
+  fib_rg_fc_lcb : FIBRgFcLcb
+}
+
+pub struct FIBBase {
+  w_ident : Int
+  n_fib : Int
+  lid : Int
+  pn_next : Int
+  flags : Int
+  env_flags : Int
+  f_dot : Bool
+  f_glsy : Bool
+  f_complex : Bool
+  f_has_pic : Bool
+  c_quick_saves : Int
+  f_encrypted : Bool
+  f_which_tbl_stm : Int
+  f_read_only_recommended : Bool
+  f_write_reservation : Bool
+  f_ext_char : Bool
+  f_load_override : Bool
+  f_far_east : Bool
+  f_obfuscated : Bool
+  n_fib_back : Int
+  l_key : Int
+  envr : Int
+  f_mac : Bool
+  f_empty_special : Bool
+  f_load_override_page : Bool
+}
+
+pub struct FIBRgFcLcb {
+  pairs : Array[FcLcbPair]
+  fc_stshf_orig : Int
+  lcb_stshf_orig : Int
+  fc_stshf : Int
+  lcb_stshf : Int
+  fc_plcffnd_ref : Int
+  lcb_plcffnd_ref : Int
+  fc_plcffnd_txt : Int
+  lcb_plcffnd_txt : Int
+  fc_plcfand_ref : Int
+  lcb_plcfand_ref : Int
+  fc_plcfand_txt : Int
+  lcb_plcfand_txt : Int
+  fc_plcf_sed : Int
+  lcb_plcf_sed : Int
+  fc_plc_pad : Int
+  lcb_plc_pad : Int
+  fc_plcf_phe : Int
+  lcb_plcf_phe : Int
+  fc_sttbf_glsy : Int
+  lcb_sttbf_glsy : Int
+  fc_plcf_glsy : Int
+  lcb_plcf_glsy : Int
+  fc_plcf_hdd : Int
+  lcb_plcf_hdd : Int
+  fc_plcf_bte_chpx : Int
+  lcb_plcf_bte_chpx : Int
+  fc_plcf_bte_papx : Int
+  lcb_plcf_bte_papx : Int
+  fc_plcf_sea : Int
+  lcb_plcf_sea : Int
+  fc_sttbf_ffn : Int
+  lcb_sttbf_ffn : Int
+  fc_plcf_fld_mom : Int
+  lcb_plcf_fld_mom : Int
+  fc_plcf_fld_hdr : Int
+  lcb_plcf_fld_hdr : Int
+  fc_plcf_fld_ftn : Int
+  lcb_plcf_fld_ftn : Int
+  fc_plcf_fld_atn : Int
+  lcb_plcf_fld_atn : Int
+  fc_plcf_fld_mcr : Int
+  lcb_plcf_fld_mcr : Int
+  fc_sttbf_bkmk : Int
+  lcb_sttbf_bkmk : Int
+  fc_plcf_bkf : Int
+  lcb_plcf_bkf : Int
+  fc_plcf_bkl : Int
+  lcb_plcf_bkl : Int
+  fc_cmds : Int
+  lcb_cmds : Int
+  fc_sttbf_mcr : Int
+  lcb_sttbf_mcr : Int
+  fc_pr_drvr : Int
+  lcb_pr_drvr : Int
+  fc_pr_env_port : Int
+  lcb_pr_env_port : Int
+  fc_pr_env_land : Int
+  lcb_pr_env_land : Int
+  fc_wss : Int
+  lcb_wss : Int
+  fc_dop : Int
+  lcb_dop : Int
+  fc_sttbf_assoc : Int
+  lcb_sttbf_assoc : Int
+  fc_clx : Int
+  lcb_clx : Int
+  fc_plcf_pgd_ftn : Int
+  lcb_plcf_pgd_ftn : Int
+  fc_autosave_source : Int
+  lcb_autosave_source : Int
+  fc_grp_xst_atn_owners : Int
+  lcb_grp_xst_atn_owners : Int
+  fc_sttbf_atn_bkmk : Int
+  lcb_sttbf_atn_bkmk : Int
+  fc_plcf_spa_mom : Int
+  lcb_plcf_spa_mom : Int
+  fc_plcf_spa_hdr : Int
+  lcb_plcf_spa_hdr : Int
+  fc_plcf_atn_bkf : Int
+  lcb_plcf_atn_bkf : Int
+  fc_plcf_atn_bkl : Int
+  lcb_plcf_atn_bkl : Int
+  fc_pms : Int
+  lcb_pms : Int
+  fc_form_fld_sttbs : Int
+  lcb_form_fld_sttbs : Int
+  fc_plcfend_ref : Int
+  lcb_plcfend_ref : Int
+  fc_plcfend_txt : Int
+  lcb_plcfend_txt : Int
+  fc_plcf_fld_edn : Int
+  lcb_plcf_fld_edn : Int
+  fc_dgg_info : Int
+  lcb_dgg_info : Int
+  fc_sttbf_rmark : Int
+  lcb_sttbf_rmark : Int
+  fc_sttbf_caption : Int
+  lcb_sttbf_caption : Int
+  fc_sttbf_auto_caption : Int
+  lcb_sttbf_auto_caption : Int
+  fc_plcf_wkb : Int
+  lcb_plcf_wkb : Int
+  fc_plcf_spl : Int
+  lcb_plcf_spl : Int
+  fc_plcftxbx_txt : Int
+  lcb_plcftxbx_txt : Int
+  fc_plcf_fld_txbx : Int
+  lcb_plcf_fld_txbx : Int
+  fc_plcf_hdrtxbx_txt : Int
+  lcb_plcf_hdrtxbx_txt : Int
+  fc_plcffld_hdr_txbx : Int
+  lcb_plcffld_hdr_txbx : Int
+  fc_stw_user : Int
+  lcb_stw_user : Int
+  fc_sttb_ttmbd : Int
+  lcb_sttb_ttmbd : Int
+  fc_cookie_data : Int
+  lcb_cookie_data : Int
+  fc_pgd_mother_old_old : Int
+  lcb_pgd_mother_old_old : Int
+  fc_bkd_mother_old_old : Int
+  lcb_bkd_mother_old_old : Int
+  fc_pgd_ftn_old_old : Int
+  lcb_pgd_ftn_old_old : Int
+  fc_bkd_ftn_old_old : Int
+  lcb_bkd_ftn_old_old : Int
+  fc_pgd_edn_old_old : Int
+  lcb_pgd_edn_old_old : Int
+  fc_bkd_edn_old_old : Int
+  lcb_bkd_edn_old_old : Int
+  fc_sttbf_intl_fld : Int
+  lcb_sttbf_intl_fld : Int
+  fc_route_slip : Int
+  lcb_route_slip : Int
+  fc_sttb_saved_by : Int
+  lcb_sttb_saved_by : Int
+  fc_sttb_fnm : Int
+  lcb_sttb_fnm : Int
+  fc_plf_lst : Int
+  lcb_plf_lst : Int
+  fc_plf_lfo : Int
+  lcb_plf_lfo : Int
+  fc_plcf_txbx_bkd : Int
+  lcb_plcf_txbx_bkd : Int
+  fc_plcf_txbx_hdr_bkd : Int
+  lcb_plcf_txbx_hdr_bkd : Int
+  fc_doc_undo_word9 : Int
+  lcb_doc_undo_word9 : Int
+  fc_rgb_use : Int
+  lcb_rgb_use : Int
+  fc_usp : Int
+  lcb_usp : Int
+  fc_uskf : Int
+  lcb_uskf : Int
+  fc_plcupc_rgb_use : Int
+  lcb_plcupc_rgb_use : Int
+  fc_plcupc_usp : Int
+  lcb_plcupc_usp : Int
+  fc_sttb_glsy_style : Int
+  lcb_sttb_glsy_style : Int
+  fc_plgosl : Int
+  lcb_plgosl : Int
+  fc_plcocx : Int
+  lcb_plcocx : Int
+  fc_plcf_bte_lvc : Int
+  lcb_plcf_bte_lvc : Int
+  fc_dw_low_date_time : Int
+  lcb_dw_low_date_time : Int
+  fc_dw_high_date_time : Int
+  lcb_dw_high_date_time : Int
+  fc_plcf_lvc_pre10 : Int
+  lcb_plcf_lvc_pre10 : Int
+  fc_plcf_asumy : Int
+  lcb_plcf_asumy : Int
+  fc_plcf_gram : Int
+  lcb_plcf_gram : Int
+  fc_sttb_list_names : Int
+  lcb_sttb_list_names : Int
+  fc_sttbf_ussr : Int
+  lcb_sttbf_ussr : Int
+}
+
+pub struct FIBRgLw {
+  raw : Array[Int]
+  cb_mac : Int
+  ccp_text : Int
+  ccp_ftn : Int
+  ccp_hdd : Int
+  ccp_mcr : Int
+  ccp_atn : Int
+  ccp_edn : Int
+  ccp_txbx : Int
+  ccp_hdr_txbx : Int
+}
+
+pub struct FcLcbPair {
+  name : String
+  fc : Int
+  lcb : Int
+  index : Int
+}
+
+type FieldCtx
+
+type FieldInstructionResult
+
+type FieldRange
+
+pub struct Font {
+  index : Int
+  cb_fn_m1 : Int
+  ffid : Int
+  weight : Int
+  charset : Int
+  ixch_sz_alt : Int
+  panose : ArrayView[Byte]
+  font_signature : ArrayView[Byte]
+  name : String
+  alt_name : String
+}
+
+pub struct FontInfo {
+  name : String
+  alt_name : String
+}
+
+pub struct FontsCollection {
+  header : FontsHeader?
+  fonts : Array[Font]
+}
+
+pub struct FontsHeader {
+  c_data : Int
+  cb_extra : Int
+}
+
+pub struct Footnote {
+  text : String
+  ref_cp : Int
+  note_index : Int
+  is_endnote : Bool
+}
+
+pub struct FormFieldData {
+  field_type : String
+  name : String
+  default_value : String
+  checked : Bool
+  selected_index : Int
+  items : Array[String]
+}
+
+type HFDInfo
+
+pub struct HeaderFooter {
+  text : String
+  story_type : Int
+  section_index : Int
+}
+
+pub struct ImageExtractor {
+  data_bytes : FixedArray[Byte]
+  config : ImageProcessorConfig
+}
+
+pub struct ImageProcessResult {
+  bytes : FixedArray[Byte]
+  mime : String
+  success : Bool
+  error : String
+  fallback_url : String
+}
+
+pub struct ImageProcessorConfig {
+  primary : ImageStrategy
+  enable_fallback : Bool
+  max_size : Int
+  mime_overrides : Map[String, String]
+}
+
+type ImageSegment
+
+pub enum ImageStrategy {
+  EmfToSvg
+  ExtractBitmap
+  CanvasRender
+  DownloadLink
+  KeepOriginal
+  Custom(String)
+} derive(Eq, Show)
+
+type InlineFieldCtx
+
+pub struct ItcRange {
+  first : Int
+  lim : Int
+}
+
+pub enum LogLevel {
+  Trace
+  Debug
+  Info
+  Warn
+  Error
+  Silent
+} derive(Compare, Eq)
+
+pub struct Logger {
+  mut level : LogLevel
+  tag : String
+}
+pub fn Logger::make(String) -> Self
+pub fn Logger::set_level(Self, LogLevel) -> Unit
+pub fn Logger::should_log(Self, LogLevel) -> Bool
+
+pub struct MsDocParseResult {
+  text : String
+  paragraphs : Array[ParagraphInfo]
+  blocks : Array[Block]
+  warnings : Array[String]
+  assets : Array[Asset]
+  meta : ParseMeta?
+  fonts : Array[FontInfo]
+  styles : Array[StyleInfo]
+  textboxes : Array[TextBox]
+  headers : Array[HeaderFooter]
+  footers : Array[HeaderFooter]
+  sections : Array[SectionProperties]
+  footnotes : Array[Footnote]
+  endnotes : Array[Footnote]
+  summary : SummaryInfo?
+  comments : Array[Comment]
+  raw_data : FixedArray[Byte]
+  image_config : ImageProcessorConfig
+  image_cache : Map[Int, Asset]
+  content_dedup_cache : Map[String, Asset]
+}
+
+type OLE10Info
+
+type ObjectStorageInfo
+
+type PapxResult
+
+pub struct PapxRun {
+  cp_start : Int
+  cp_end : Int
+  fc_start : Int
+  fc_end : Int
+  style_id : Int
+  properties : Array[Byte]
+  raw_offset : Int
+}
+
+pub struct ParaState {
+  align : Int
+  indent_left : Int
+  indent_right : Int
+  indent_first : Int
+  space_before : Int
+  space_after : Int
+  line_spacing : Int
+  keep_with_next : Bool
+  keep_together : Bool
+  page_break_before : Bool
+  widow_control : Bool
+  tab_stops : Array[Int]
+  style_id : Int
+  itap : Int
+  table_row_end : Bool
+  inner_table_cell : Bool
+  inner_table_row_end : Bool
+  in_table : Bool
+  dtap : Int
+  list_level : Int
+  list_id : Int
+  rtl_para : Bool
+  adjust_right : Bool
+  border_top : Int
+  border_left : Int
+  border_bottom : Int
+  border_right : Int
+  border_between : Int
+  border_bar : Int
+  shading : Int
+  frame_left : Int
+  frame_top : Int
+  frame_width : Int
+  frame_height : Int
+  frame_position : Int
+  frame_wrap : Int
+  spacing_before_auto : Bool
+  spacing_after_auto : Bool
+  distance_from_text_y : Int
+  distance_from_text_x : Int
+  locked : Bool
+  outline_level : Int
+}
+
+pub struct ParagraphInfo {
+  cp_start : Int
+  cp_end : Int
+  text : String
+  runs : Array[RenderRun]
+  style_name : String
+  align : Int
+  indent_left : Int
+  indent_right : Int
+  indent_first : Int
+  space_before : Int
+  space_after : Int
+  line_spacing : Int
+  keep_with_next : Bool
+  keep_together : Bool
+  page_break_before : Bool
+  itap : Int
+  table_row_end : Bool
+  inner_table_cell : Bool
+  inner_table_row_end : Bool
+  in_table : Bool
+  dtap : Int
+  rtl_para : Bool
+  terminator : Byte
+  raw_papx : Array[Byte]
+  border_top : Int
+  border_left : Int
+  border_bottom : Int
+  border_right : Int
+  outline_level : Int
+  shading : Int
+}
+
+pub struct ParseDiagnostics {
+  para_count : Int
+  chpx_run_count : Int
+  papx_run_count : Int
+  text_length : Int
+  asset_count : Int
+  block_count : Int
+}
+
+pub struct ParseIntermediate {
+  word_bytes : FixedArray[Byte]
+  table_bytes : FixedArray[Byte]
+  container : CFBContainer
+  clean_full_text : String
+  main_story_end : Int
+  fib_rgfc_lcb_start : Int
+  fib_reader : BinaryReader
+  pcd_count : Int
+  cps : Array[Int]
+  plc_reader : BinaryReader
+  chpx_runs : Array[ChpxRun]
+  papx_runs : Array[PapxRun]
+  styles : StyleCollection
+  fonts : FontsCollection
+  data_bytes : FixedArray[Byte]
+  object_pool : Map[String, Asset]
+  resolver : AssetResolver
+  style_cache : Map[Int, ResolvedStyle]
+}
+
+pub struct ParseMeta {
+  fib_w_ident : Int
+  fib_n_fib : Int
+  fib_which_tbl_stm : Bool
+  fib_complex : Bool
+  fib_encrypted : Bool
+  ccp_text : Int
+  count_paragraphs : Int
+  count_blocks : Int
+  count_assets : Int
+  count_styles : Int
+  count_fonts : Int
+}
+
+pub struct Piece {
+  index : Int
+  compressed : Bool
+  fc : Int
+  cp_start : Int
+  cp_end : Int
+  actual_byte_start : Int
+  byte_length : Int
+  actual_byte_end : Int
+}
+
+pub struct PieceEntry {
+  cp_start : Int
+  cp_end : Int
+  fc_start : Int
+  fc_end : Int
+  compressed : Bool
+}
+
+pub struct PieceTable {
+  cps : Array[Int]
+  pieces : Array[Piece]
+}
+
+pub struct RangeBrcOperand {
+  cb : Int
+  range : ItcRange
+  border : Brc80Data
+}
+
+pub struct RangeValueOperand {
+  cb : Int
+  range : ItcRange
+  value : Int
+}
+
+pub struct RangeWidthOperand {
+  cb : Int
+  range : ItcRange
+  fts_width : Int
+  width : Int
+}
+
+pub struct RenderResult {
+  html : String
+  css : String
+  warnings : Array[String]
+  assets : Array[Asset]
+  meta : ParseMeta?
+}
+
+pub struct RenderRun {
+  text : String
+  bold : Bool
+  italic : Bool
+  underline : Int
+  strike : Bool
+  double_strike : Bool
+  font_size : Int
+  font_family : String
+  color : Int
+  highlight : Int
+  superscript : Bool
+  subscript : Bool
+  href : String
+  bold_bi : Bool
+  italic_bi : Bool
+  small_caps : Bool
+  caps : Bool
+  outline : Bool
+  shadow : Bool
+  emboss : Bool
+  imprint : Bool
+  scale : Int
+  position_half_points : Int
+  rtl : Bool
+  is_line_break : Bool
+  is_page_break : Bool
+  is_image : Bool
+  image_data_url : String
+  image_width : Int
+  image_height : Int
+  is_attachment : Bool
+  attachment_name : String
+  form_field : FormFieldData?
+}
+
+pub struct ResolvedStyle {
+  style_ids : Array[Int]
+  para_props : Array[DecodedProperty]
+  char_props : Array[DecodedProperty]
+  table_props : Array[DecodedProperty]
+}
+
+pub struct SectionProperties {
+  index : Int
+  has_title_page : Bool
+  header_distance : Int
+  footer_distance : Int
+  break_type : Int
+  page_width : Int
+  page_height : Int
+  orientation : Int
+  margin_top : Int
+  margin_bottom : Int
+  margin_left : Int
+  margin_right : Int
+  column_count : Int
+  column_spacing : Int
+}
+
+type StdfBase
+
+pub struct StyleCollection {
+  styles : Array[StyleDefinition]
+  style_map : Map[Int, Int]
+  count : Int
+  header : StyleHeader?
+}
+
+pub struct StyleDefinition {
+  istd : Int
+  name : String
+  base_style : Int
+  next_style : Int
+  stk : Int
+  cupx : Int
+  para_properties : Array[DecodedProperty]
+  char_properties : Array[DecodedProperty]
+  table_properties : Array[DecodedProperty]
+}
+
+type StyleHeader
+
+pub struct StyleInfo {
+  istd : Int
+  name : String
+  style_type : Int
+  based_on : Int
+  next_style : Int
+}
+
+pub struct SummaryInfo {
+  title : String
+  subject : String
+  author : String
+  last_saved_by : String
+  creating_application : String
+  create_time : String
+  last_saved_time : String
+}
+
+pub struct TDefTableOperand {
+  cb : Int
+  number_of_columns : Int
+  rgdxa_center : Array[Int]
+  cells : Array[Tc80Data]
+}
+
+pub struct TTableWidthOperand {
+  fts_width : Int
+  width : Int
+}
+
+pub struct TableBlock {
+  rows : Array[TableRow]
+  depth : Int
+  table_state : TableState?
+}
+
+pub struct TableCellDef {
+  index : Int
+  width : Int
+  left_boundary : Int
+  right_boundary : Int
+  merge : Int
+  vert_merge : Int
+  vert_align : Int
+  borders : Array[Byte]
+  shading : Array[Byte]
+  fit_text : Bool
+  no_wrap : Bool
+  hide_mark : Bool
+  text_flow : Int
+}
+
+pub struct TableRow {
+  cells : Array[DocTableCell]
+  grid_width_twips : Int
+  row_height : Int
+}
+
+pub struct TableState {
+  style_id : Int
+  indent : Int
+  cell_margins : Array[Int]
+  grid_columns : Array[Int]
+  left_indent : Int
+  row_height : Int
+  alignment : Int
+  table_width : Int
+  def_table_bytes : Array[Byte]
+  operations : Array[DecodedProperty]
+  table_shading : Int
+  cell_padding : Array[Int]
+}
+
+pub struct Tc80Data {
+  tcgrf : TcgrfData
+  w_width : Int
+  borders_top : Brc80Data
+  borders_left : Brc80Data
+  borders_bottom : Brc80Data
+  borders_right : Brc80Data
+}
+
+pub struct TcgrfData {
+  raw : Int
+  horz_merge : Int
+  text_flow : Int
+  vert_merge : Int
+  vert_align : Int
+  fts_width : Int
+  fit_text : Bool
+  no_wrap : Bool
+  hide_mark : Bool
+}
+
+pub struct TextBox {
+  shape_id : Int
+  text : String
+  cp_start : Int
+  cp_end : Int
+}
+
+pub struct Utf16ZResult {
+  value : String
+  next_offset : Int
+}
+
+// Type aliases
+
+// Traits
+

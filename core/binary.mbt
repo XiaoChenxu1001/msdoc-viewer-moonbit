@@ -1,23 +1,31 @@
-﻿///| Binary reader for parsing binary file formats.
-///| Uses ArrayView for zero-copy slicing.
+///| Binary reader for parsing binary file formats.
+
+///|
+/// Uses ArrayView for zero-copy slicing.
 pub struct BinaryReader {
   bytes : ArrayView[Byte]
   length : Int
 }
 
-///| Create a BinaryReader from a FixedArray (converts to view, zero-copy)
+///|
+/// Create a BinaryReader from a FixedArray (converts to view, zero-copy)
 pub fn BinaryReader::make(bytes : FixedArray[Byte]) -> BinaryReader {
   let view = bytes.view()
   { bytes: view, length: view.length() }
 }
 
-///| Create a BinaryReader directly from an ArrayView (zero-copy)
+///|
+/// Create a BinaryReader directly from an ArrayView (zero-copy)
 pub fn BinaryReader::from_view(view : ArrayView[Byte]) -> BinaryReader {
   { bytes: view, length: view.length() }
 }
 
 ///|
-pub fn BinaryReader::ensure(self : BinaryReader, offset : Int, size : Int) -> Bool {
+pub fn BinaryReader::ensure(
+  self : BinaryReader,
+  offset : Int,
+  size : Int,
+) -> Bool {
   offset >= 0 && offset + size <= self.length
 }
 
@@ -33,7 +41,11 @@ pub fn BinaryReader::u8(self : BinaryReader, offset : Int) -> Int {
 ///|
 pub fn BinaryReader::i8(self : BinaryReader, offset : Int) -> Int {
   let raw = self.u8(offset)
-  if raw >= 0x80 { raw - 0x100 } else { raw }
+  if raw >= 0x80 {
+    raw - 0x100
+  } else {
+    raw
+  }
 }
 
 ///|
@@ -48,7 +60,11 @@ pub fn BinaryReader::u16(self : BinaryReader, offset : Int) -> Int {
 ///|
 pub fn BinaryReader::i16(self : BinaryReader, offset : Int) -> Int {
   let raw = self.u16(offset)
-  if raw >= 0x8000 { raw - 0x10000 } else { raw }
+  if raw >= 0x8000 {
+    raw - 0x10000
+  } else {
+    raw
+  }
 }
 
 ///|
@@ -75,8 +91,13 @@ pub fn BinaryReader::u64(self : BinaryReader, offset : Int) -> Int64 {
   hi * 0x100000000L + lo
 }
 
-///| Get a zero-copy view of a byte range (no allocation)
-pub fn BinaryReader::slice(self : BinaryReader, offset : Int, length : Int) -> ArrayView[Byte] {
+///|
+/// Get a zero-copy view of a byte range (no allocation)
+pub fn BinaryReader::slice(
+  self : BinaryReader,
+  offset : Int,
+  length : Int,
+) -> ArrayView[Byte] {
   if self.ensure(offset, length) {
     self.bytes.view(start=offset, end=offset + length)
   } else {
@@ -125,8 +146,13 @@ test "BinaryReader slice" {
   assert_eq(s[2].to_int(), 0x04)
 }
 
-///| 读取 UTF-16LE 字符串
-pub fn BinaryReader::utf16le(self : BinaryReader, offset : Int, byte_length : Int) -> String {
+///|
+/// 读取 UTF-16LE 字符串
+pub fn BinaryReader::utf16le(
+  self : BinaryReader,
+  offset : Int,
+  byte_length : Int,
+) -> String {
   if !self.ensure(offset, byte_length) {
     return ""
   }
@@ -168,8 +194,13 @@ pub fn BinaryReader::utf16le(self : BinaryReader, offset : Int, byte_length : In
   result.to_string()
 }
 
-///| 读取 Latin1/Windows-1252 字符串
-pub fn BinaryReader::latin1(self : BinaryReader, offset : Int, byte_length : Int) -> String {
+///|
+/// 读取 Latin1/Windows-1252 字符串
+pub fn BinaryReader::latin1(
+  self : BinaryReader,
+  offset : Int,
+  byte_length : Int,
+) -> String {
   if !self.ensure(offset, byte_length) {
     return ""
   }
@@ -201,8 +232,13 @@ pub fn BinaryReader::latin1(self : BinaryReader, offset : Int, byte_length : Int
   result.to_string()
 }
 
-///| 读取 ASCII 字符串
-pub fn BinaryReader::ascii(self : BinaryReader, offset : Int, byte_length : Int) -> String {
+///|
+/// 读取 ASCII 字符串
+pub fn BinaryReader::ascii(
+  self : BinaryReader,
+  offset : Int,
+  byte_length : Int,
+) -> String {
   if !self.ensure(offset, byte_length) {
     return ""
   }
@@ -224,8 +260,13 @@ pub fn BinaryReader::ascii(self : BinaryReader, offset : Int, byte_length : Int)
   result.to_string()
 }
 
-///| 读取 UTF-16Z 字符串 (以 null 结尾)
-pub fn BinaryReader::utf16z(self : BinaryReader, offset : Int, byte_length : Int) -> String {
+///|
+/// 读取 UTF-16Z 字符串 (以 null 结尾)
+pub fn BinaryReader::utf16z(
+  self : BinaryReader,
+  offset : Int,
+  byte_length : Int,
+) -> String {
   if !self.ensure(offset, byte_length) {
     return ""
   }
@@ -242,8 +283,14 @@ pub fn BinaryReader::utf16z(self : BinaryReader, offset : Int, byte_length : Int
   self.utf16le(offset, end)
 }
 
-///| 读取数组
-pub fn BinaryReader::array[T](self : BinaryReader, offset : Int, count : Int, read_fn : (BinaryReader, Int) -> T) -> Array[T] {
+///|
+/// 读取数组
+pub fn[T] BinaryReader::array(
+  self : BinaryReader,
+  offset : Int,
+  count : Int,
+  read_fn : (BinaryReader, Int) -> T,
+) -> Array[T] {
   let out = Array::new()
   let mut i = 0
   while i < count {

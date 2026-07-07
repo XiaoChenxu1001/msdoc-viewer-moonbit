@@ -1,6 +1,7 @@
-﻿///| FIB (File Information Block) parser for MS-DOC files
+///| FIB (File Information Block) parser for MS-DOC files
 
-///| FIB base header
+///|
+/// FIB base header
 pub struct FIBBase {
   w_ident : Int
   n_fib : Int
@@ -29,7 +30,8 @@ pub struct FIBBase {
   f_load_override_page : Bool
 }
 
-///| FIB long word values
+///|
+/// FIB long word values
 pub struct FIBRgLw {
   raw : Array[Int]
   cb_mac : Int
@@ -43,7 +45,8 @@ pub struct FIBRgLw {
   ccp_hdr_txbx : Int
 }
 
-///| FC/LCB pair
+///|
+/// FC/LCB pair
 pub struct FcLcbPair {
   name : String
   fc : Int
@@ -51,7 +54,8 @@ pub struct FcLcbPair {
   index : Int
 }
 
-///| FIB FC/LCB table
+///|
+/// FIB FC/LCB table
 pub struct FIBRgFcLcb {
   pairs : Array[FcLcbPair]
   fc_stshf_orig : Int
@@ -236,7 +240,8 @@ pub struct FIBRgFcLcb {
   lcb_sttbf_ussr : Int
 }
 
-///| FIB complete structure
+///|
+/// FIB complete structure
 pub struct FIB {
   base : FIBBase
   csw : Int
@@ -248,7 +253,8 @@ pub struct FIB {
   fib_rg_fc_lcb : FIBRgFcLcb
 }
 
-///| FIB FC/LCB field names
+///|
+/// FIB FC/LCB field names
 fn fib_fc_lcb_name(index : Int) -> String {
   match index {
     0 => "StshfOrig"
@@ -349,7 +355,8 @@ fn fib_fc_lcb_name(index : Int) -> String {
   }
 }
 
-///| Parse FIB base header
+///|
+/// Parse FIB base header
 fn parse_fib_base(reader : BinaryReader) -> FIBBase {
   let w_ident = reader.u16(0)
   let n_fib = reader.u16(2)
@@ -368,9 +375,13 @@ fn parse_fib_base(reader : BinaryReader) -> FIBBase {
     f_glsy: (flags & 0x0002) != 0,
     f_complex: (flags & 0x0004) != 0,
     f_has_pic: (flags & 0x0008) != 0,
-    c_quick_saves: flags >> 4 & 0x0f,
+    c_quick_saves: (flags >> 4) & 0x0f,
     f_encrypted: (flags & 0x0100) != 0,
-    f_which_tbl_stm: if (flags & 0x0200) != 0 { 1 } else { 0 },
+    f_which_tbl_stm: if (flags & 0x0200) != 0 {
+      1
+    } else {
+      0
+    },
     f_read_only_recommended: (flags & 0x0400) != 0,
     f_write_reservation: (flags & 0x0800) != 0,
     f_ext_char: (flags & 0x1000) != 0,
@@ -386,7 +397,8 @@ fn parse_fib_base(reader : BinaryReader) -> FIBBase {
   }
 }
 
-///| Parse FIB RgLw
+///|
+/// Parse FIB RgLw
 fn parse_fib_rg_lw(bytes : ArrayView[Byte]) -> FIBRgLw {
   let reader = BinaryReader::from_view(bytes)
   let dwords = Array::new()
@@ -397,19 +409,56 @@ fn parse_fib_rg_lw(bytes : ArrayView[Byte]) -> FIBRgLw {
   }
   FIBRgLw::{
     raw: dwords,
-    cb_mac: if dwords.length() > 0 { dwords[0] } else { 0 },
-    ccp_text: if dwords.length() > 3 { dwords[3] } else { 0 },
-    ccp_ftn: if dwords.length() > 4 { dwords[4] } else { 0 },
-    ccp_hdd: if dwords.length() > 5 { dwords[5] } else { 0 },
-    ccp_mcr: if dwords.length() > 6 { dwords[6] } else { 0 },
-    ccp_atn: if dwords.length() > 7 { dwords[7] } else { 0 },
-    ccp_edn: if dwords.length() > 8 { dwords[8] } else { 0 },
-    ccp_txbx: if dwords.length() > 9 { dwords[9] } else { 0 },
-    ccp_hdr_txbx: if dwords.length() > 10 { dwords[10] } else { 0 },
+    cb_mac: if dwords.length() > 0 {
+      dwords[0]
+    } else {
+      0
+    },
+    ccp_text: if dwords.length() > 3 {
+      dwords[3]
+    } else {
+      0
+    },
+    ccp_ftn: if dwords.length() > 4 {
+      dwords[4]
+    } else {
+      0
+    },
+    ccp_hdd: if dwords.length() > 5 {
+      dwords[5]
+    } else {
+      0
+    },
+    ccp_mcr: if dwords.length() > 6 {
+      dwords[6]
+    } else {
+      0
+    },
+    ccp_atn: if dwords.length() > 7 {
+      dwords[7]
+    } else {
+      0
+    },
+    ccp_edn: if dwords.length() > 8 {
+      dwords[8]
+    } else {
+      0
+    },
+    ccp_txbx: if dwords.length() > 9 {
+      dwords[9]
+    } else {
+      0
+    },
+    ccp_hdr_txbx: if dwords.length() > 10 {
+      dwords[10]
+    } else {
+      0
+    },
   }
 }
 
-///| Parse FIB RgFcLcb
+///|
+/// Parse FIB RgFcLcb
 fn parse_fib_rg_fc_lcb(bytes : ArrayView[Byte], count : Int) -> FIBRgFcLcb {
   let reader = BinaryReader::from_view(bytes)
   let pairs = Array::new()
@@ -524,100 +573,191 @@ fn parse_fib_rg_fc_lcb(bytes : ArrayView[Byte], count : Int) -> FIBRgFcLcb {
 
   FIBRgFcLcb::{
     pairs,
-    fc_stshf_orig, lcb_stshf_orig,
-    fc_stshf, lcb_stshf,
-    fc_plcffnd_ref, lcb_plcffnd_ref,
-    fc_plcffnd_txt, lcb_plcffnd_txt,
-    fc_plcfand_ref, lcb_plcfand_ref,
-    fc_plcfand_txt, lcb_plcfand_txt,
-    fc_plcf_sed, lcb_plcf_sed,
-    fc_plc_pad, lcb_plc_pad,
-    fc_plcf_phe, lcb_plcf_phe,
-    fc_sttbf_glsy, lcb_sttbf_glsy,
-    fc_plcf_glsy, lcb_plcf_glsy,
-    fc_plcf_hdd, lcb_plcf_hdd,
-    fc_plcf_bte_chpx, lcb_plcf_bte_chpx,
-    fc_plcf_bte_papx, lcb_plcf_bte_papx,
-    fc_plcf_sea, lcb_plcf_sea,
-    fc_sttbf_ffn, lcb_sttbf_ffn,
-    fc_plcf_fld_mom, lcb_plcf_fld_mom,
-    fc_plcf_fld_hdr, lcb_plcf_fld_hdr,
-    fc_plcf_fld_ftn, lcb_plcf_fld_ftn,
-    fc_plcf_fld_atn, lcb_plcf_fld_atn,
-    fc_plcf_fld_mcr, lcb_plcf_fld_mcr,
-    fc_sttbf_bkmk, lcb_sttbf_bkmk,
-    fc_plcf_bkf, lcb_plcf_bkf,
-    fc_plcf_bkl, lcb_plcf_bkl,
-    fc_cmds, lcb_cmds,
-    fc_sttbf_mcr, lcb_sttbf_mcr,
-    fc_pr_drvr, lcb_pr_drvr,
-    fc_pr_env_port, lcb_pr_env_port,
-    fc_pr_env_land, lcb_pr_env_land,
-    fc_wss, lcb_wss,
-    fc_dop, lcb_dop,
-    fc_sttbf_assoc, lcb_sttbf_assoc,
-    fc_clx, lcb_clx,
-    fc_plcf_pgd_ftn, lcb_plcf_pgd_ftn,
-    fc_autosave_source, lcb_autosave_source,
-    fc_grp_xst_atn_owners, lcb_grp_xst_atn_owners,
-    fc_sttbf_atn_bkmk, lcb_sttbf_atn_bkmk,
-    fc_plcf_spa_mom, lcb_plcf_spa_mom,
-    fc_plcf_spa_hdr, lcb_plcf_spa_hdr,
-    fc_plcf_atn_bkf, lcb_plcf_atn_bkf,
-    fc_plcf_atn_bkl, lcb_plcf_atn_bkl,
-    fc_pms, lcb_pms,
-    fc_form_fld_sttbs, lcb_form_fld_sttbs,
-    fc_plcfend_ref, lcb_plcfend_ref,
-    fc_plcfend_txt, lcb_plcfend_txt,
-    fc_plcf_fld_edn, lcb_plcf_fld_edn,
-    fc_dgg_info, lcb_dgg_info,
-    fc_sttbf_rmark, lcb_sttbf_rmark,
-    fc_sttbf_caption, lcb_sttbf_caption,
-    fc_sttbf_auto_caption, lcb_sttbf_auto_caption,
-    fc_plcf_wkb, lcb_plcf_wkb,
-    fc_plcf_spl, lcb_plcf_spl,
-    fc_plcftxbx_txt, lcb_plcftxbx_txt,
-    fc_plcf_fld_txbx, lcb_plcf_fld_txbx,
-    fc_plcf_hdrtxbx_txt, lcb_plcf_hdrtxbx_txt,
-    fc_plcffld_hdr_txbx, lcb_plcffld_hdr_txbx,
-    fc_stw_user, lcb_stw_user,
-    fc_sttb_ttmbd, lcb_sttb_ttmbd,
-    fc_cookie_data, lcb_cookie_data,
-    fc_pgd_mother_old_old, lcb_pgd_mother_old_old,
-    fc_bkd_mother_old_old, lcb_bkd_mother_old_old,
-    fc_pgd_ftn_old_old, lcb_pgd_ftn_old_old,
-    fc_bkd_ftn_old_old, lcb_bkd_ftn_old_old,
-    fc_pgd_edn_old_old, lcb_pgd_edn_old_old,
-    fc_bkd_edn_old_old, lcb_bkd_edn_old_old,
-    fc_sttbf_intl_fld, lcb_sttbf_intl_fld,
-    fc_route_slip, lcb_route_slip,
-    fc_sttb_saved_by, lcb_sttb_saved_by,
-    fc_sttb_fnm, lcb_sttb_fnm,
-    fc_plf_lst, lcb_plf_lst,
-    fc_plf_lfo, lcb_plf_lfo,
-    fc_plcf_txbx_bkd, lcb_plcf_txbx_bkd,
-    fc_plcf_txbx_hdr_bkd, lcb_plcf_txbx_hdr_bkd,
-    fc_doc_undo_word9, lcb_doc_undo_word9,
-    fc_rgb_use, lcb_rgb_use,
-    fc_usp, lcb_usp,
-    fc_uskf, lcb_uskf,
-    fc_plcupc_rgb_use, lcb_plcupc_rgb_use,
-    fc_plcupc_usp, lcb_plcupc_usp,
-    fc_sttb_glsy_style, lcb_sttb_glsy_style,
-    fc_plgosl, lcb_plgosl,
-    fc_plcocx, lcb_plcocx,
-    fc_plcf_bte_lvc, lcb_plcf_bte_lvc,
-    fc_dw_low_date_time, lcb_dw_low_date_time,
-    fc_dw_high_date_time, lcb_dw_high_date_time,
-    fc_plcf_lvc_pre10, lcb_plcf_lvc_pre10,
-    fc_plcf_asumy, lcb_plcf_asumy,
-    fc_plcf_gram, lcb_plcf_gram,
-    fc_sttb_list_names, lcb_sttb_list_names,
-    fc_sttbf_ussr, lcb_sttbf_ussr,
+    fc_stshf_orig,
+    lcb_stshf_orig,
+    fc_stshf,
+    lcb_stshf,
+    fc_plcffnd_ref,
+    lcb_plcffnd_ref,
+    fc_plcffnd_txt,
+    lcb_plcffnd_txt,
+    fc_plcfand_ref,
+    lcb_plcfand_ref,
+    fc_plcfand_txt,
+    lcb_plcfand_txt,
+    fc_plcf_sed,
+    lcb_plcf_sed,
+    fc_plc_pad,
+    lcb_plc_pad,
+    fc_plcf_phe,
+    lcb_plcf_phe,
+    fc_sttbf_glsy,
+    lcb_sttbf_glsy,
+    fc_plcf_glsy,
+    lcb_plcf_glsy,
+    fc_plcf_hdd,
+    lcb_plcf_hdd,
+    fc_plcf_bte_chpx,
+    lcb_plcf_bte_chpx,
+    fc_plcf_bte_papx,
+    lcb_plcf_bte_papx,
+    fc_plcf_sea,
+    lcb_plcf_sea,
+    fc_sttbf_ffn,
+    lcb_sttbf_ffn,
+    fc_plcf_fld_mom,
+    lcb_plcf_fld_mom,
+    fc_plcf_fld_hdr,
+    lcb_plcf_fld_hdr,
+    fc_plcf_fld_ftn,
+    lcb_plcf_fld_ftn,
+    fc_plcf_fld_atn,
+    lcb_plcf_fld_atn,
+    fc_plcf_fld_mcr,
+    lcb_plcf_fld_mcr,
+    fc_sttbf_bkmk,
+    lcb_sttbf_bkmk,
+    fc_plcf_bkf,
+    lcb_plcf_bkf,
+    fc_plcf_bkl,
+    lcb_plcf_bkl,
+    fc_cmds,
+    lcb_cmds,
+    fc_sttbf_mcr,
+    lcb_sttbf_mcr,
+    fc_pr_drvr,
+    lcb_pr_drvr,
+    fc_pr_env_port,
+    lcb_pr_env_port,
+    fc_pr_env_land,
+    lcb_pr_env_land,
+    fc_wss,
+    lcb_wss,
+    fc_dop,
+    lcb_dop,
+    fc_sttbf_assoc,
+    lcb_sttbf_assoc,
+    fc_clx,
+    lcb_clx,
+    fc_plcf_pgd_ftn,
+    lcb_plcf_pgd_ftn,
+    fc_autosave_source,
+    lcb_autosave_source,
+    fc_grp_xst_atn_owners,
+    lcb_grp_xst_atn_owners,
+    fc_sttbf_atn_bkmk,
+    lcb_sttbf_atn_bkmk,
+    fc_plcf_spa_mom,
+    lcb_plcf_spa_mom,
+    fc_plcf_spa_hdr,
+    lcb_plcf_spa_hdr,
+    fc_plcf_atn_bkf,
+    lcb_plcf_atn_bkf,
+    fc_plcf_atn_bkl,
+    lcb_plcf_atn_bkl,
+    fc_pms,
+    lcb_pms,
+    fc_form_fld_sttbs,
+    lcb_form_fld_sttbs,
+    fc_plcfend_ref,
+    lcb_plcfend_ref,
+    fc_plcfend_txt,
+    lcb_plcfend_txt,
+    fc_plcf_fld_edn,
+    lcb_plcf_fld_edn,
+    fc_dgg_info,
+    lcb_dgg_info,
+    fc_sttbf_rmark,
+    lcb_sttbf_rmark,
+    fc_sttbf_caption,
+    lcb_sttbf_caption,
+    fc_sttbf_auto_caption,
+    lcb_sttbf_auto_caption,
+    fc_plcf_wkb,
+    lcb_plcf_wkb,
+    fc_plcf_spl,
+    lcb_plcf_spl,
+    fc_plcftxbx_txt,
+    lcb_plcftxbx_txt,
+    fc_plcf_fld_txbx,
+    lcb_plcf_fld_txbx,
+    fc_plcf_hdrtxbx_txt,
+    lcb_plcf_hdrtxbx_txt,
+    fc_plcffld_hdr_txbx,
+    lcb_plcffld_hdr_txbx,
+    fc_stw_user,
+    lcb_stw_user,
+    fc_sttb_ttmbd,
+    lcb_sttb_ttmbd,
+    fc_cookie_data,
+    lcb_cookie_data,
+    fc_pgd_mother_old_old,
+    lcb_pgd_mother_old_old,
+    fc_bkd_mother_old_old,
+    lcb_bkd_mother_old_old,
+    fc_pgd_ftn_old_old,
+    lcb_pgd_ftn_old_old,
+    fc_bkd_ftn_old_old,
+    lcb_bkd_ftn_old_old,
+    fc_pgd_edn_old_old,
+    lcb_pgd_edn_old_old,
+    fc_bkd_edn_old_old,
+    lcb_bkd_edn_old_old,
+    fc_sttbf_intl_fld,
+    lcb_sttbf_intl_fld,
+    fc_route_slip,
+    lcb_route_slip,
+    fc_sttb_saved_by,
+    lcb_sttb_saved_by,
+    fc_sttb_fnm,
+    lcb_sttb_fnm,
+    fc_plf_lst,
+    lcb_plf_lst,
+    fc_plf_lfo,
+    lcb_plf_lfo,
+    fc_plcf_txbx_bkd,
+    lcb_plcf_txbx_bkd,
+    fc_plcf_txbx_hdr_bkd,
+    lcb_plcf_txbx_hdr_bkd,
+    fc_doc_undo_word9,
+    lcb_doc_undo_word9,
+    fc_rgb_use,
+    lcb_rgb_use,
+    fc_usp,
+    lcb_usp,
+    fc_uskf,
+    lcb_uskf,
+    fc_plcupc_rgb_use,
+    lcb_plcupc_rgb_use,
+    fc_plcupc_usp,
+    lcb_plcupc_usp,
+    fc_sttb_glsy_style,
+    lcb_sttb_glsy_style,
+    fc_plgosl,
+    lcb_plgosl,
+    fc_plcocx,
+    lcb_plcocx,
+    fc_plcf_bte_lvc,
+    lcb_plcf_bte_lvc,
+    fc_dw_low_date_time,
+    lcb_dw_low_date_time,
+    fc_dw_high_date_time,
+    lcb_dw_high_date_time,
+    fc_plcf_lvc_pre10,
+    lcb_plcf_lvc_pre10,
+    fc_plcf_asumy,
+    lcb_plcf_asumy,
+    fc_plcf_gram,
+    lcb_plcf_gram,
+    fc_sttb_list_names,
+    lcb_sttb_list_names,
+    fc_sttbf_ussr,
+    lcb_sttbf_ussr,
   }
 }
 
-///| Parse FIB from WordDocument stream
+///|
+/// Parse FIB from WordDocument stream
 pub fn parse_fib(word_bytes : FixedArray[Byte]) -> FIB raise {
   let reader = BinaryReader::make(word_bytes)
   let base = parse_fib_base(reader)

@@ -12,6 +12,10 @@ AGENTS.md
 serve.json
 *.lock
 package-lock.json
+test_full_output.txt
+test_output.txt
+test_sensitive.txt
+mimocode.json
 
 # 敏感目录
 **/confidential/

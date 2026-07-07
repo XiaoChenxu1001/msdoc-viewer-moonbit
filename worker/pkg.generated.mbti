@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "msdoc-viewer/worker"
+
+// Values
+pub fn worker_extract_all_images(FixedArray[Byte], String) -> String
+
+pub fn worker_extract_image(FixedArray[Byte], Int) -> String
+
+pub fn worker_parse(FixedArray[Byte]) -> String
+
+pub fn worker_parse_to_html(FixedArray[Byte]) -> String
+
+pub fn worker_render(FixedArray[Byte]) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

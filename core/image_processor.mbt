@@ -1,7 +1,9 @@
 ///| Image processor strategy interface and implementations
+
 ///| Supports multiple strategies for handling unsupported image formats (EMF, WMF, etc.)
 
-///| Image processing strategy type
+///|
+/// Image processing strategy type
 pub enum ImageStrategy {
   /// Convert to SVG using emf2svg/wmf2svg (default)
   EmfToSvg
@@ -17,7 +19,8 @@ pub enum ImageStrategy {
   Custom(String)
 } derive(Show, Eq)
 
-///| Image processing result
+///|
+/// Image processing result
 pub struct ImageProcessResult {
   /// Processed image bytes (PNG, JPEG, SVG, etc.)
   bytes : FixedArray[Byte]
@@ -31,7 +34,8 @@ pub struct ImageProcessResult {
   fallback_url : String
 }
 
-///| Image processor configuration
+///|
+/// Image processor configuration
 pub struct ImageProcessorConfig {
   /// Primary strategy to use
   primary : ImageStrategy
@@ -43,7 +47,8 @@ pub struct ImageProcessorConfig {
   mime_overrides : Map[String, String]
 }
 
-///| Default configuration
+///|
+/// Default configuration
 pub fn default_image_config() -> ImageProcessorConfig {
   ImageProcessorConfig::{
     primary: ImageStrategy::EmfToSvg,
@@ -53,7 +58,8 @@ pub fn default_image_config() -> ImageProcessorConfig {
   }
 }
 
-///| Check if MIME type needs processing (not web-supported)
+///|
+/// Check if MIME type needs processing (not web-supported)
 pub fn needs_processing(mime : String) -> Bool {
   match mime {
     "image/emf" | "image/wmf" | "application/octet-stream" => true
@@ -61,7 +67,8 @@ pub fn needs_processing(mime : String) -> Bool {
   }
 }
 
-///| Process image with configured strategy
+///|
+/// Process image with configured strategy
 pub fn process_image(
   bytes : FixedArray[Byte],
   mime : String,
@@ -136,7 +143,8 @@ pub fn process_image(
   }
 }
 
-///| Try a specific strategy
+///|
+/// Try a specific strategy
 fn try_strategy(
   bytes : FixedArray[Byte],
   mime : String,
@@ -148,19 +156,25 @@ fn try_strategy(
     ImageStrategy::CanvasRender => try_canvas_render(bytes, mime)
     ImageStrategy::DownloadLink => create_download_result(bytes, mime)
     ImageStrategy::KeepOriginal => try_keep_original(bytes, mime)
-    ImageStrategy::Custom(name) => ImageProcessResult::{
-      bytes: FixedArray::make(0, 0x0),
-      mime: "unknown",
-      success: false,
-      error: "Custom strategy '\{name}' not implemented",
-      fallback_url: "",
-    }
+    ImageStrategy::Custom(name) =>
+      ImageProcessResult::{
+        bytes: FixedArray::make(0, 0x0),
+        mime: "unknown",
+        success: false,
+        error: "Custom strategy '\{name}' not implemented",
+        fallback_url: "",
+      }
   }
 }
 
 ///| Try to convert EMF/WMF to SVG using JavaScript bridge
-///| This function is called from JavaScript layer via emf_js_bridge.js
-fn try_emf_to_svg(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult {
+
+///|
+/// This function is called from JavaScript layer via emf_js_bridge.js
+fn try_emf_to_svg(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> ImageProcessResult {
   // Check if this is actually EMF/WMF
   if mime != "image/emf" && mime != "image/wmf" {
     return ImageProcessResult::{
@@ -184,8 +198,12 @@ fn try_emf_to_svg(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult
   }
 }
 
-///| Try to extract embedded bitmap from EMF/WMF
-fn try_extract_bitmap(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult {
+///|
+/// Try to extract embedded bitmap from EMF/WMF
+fn try_extract_bitmap(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> ImageProcessResult {
   // Check if this is actually EMF/WMF
   if mime != "image/emf" && mime != "image/wmf" {
     return ImageProcessResult::{
@@ -200,8 +218,10 @@ fn try_extract_bitmap(bytes : FixedArray[Byte], mime : String) -> ImageProcessRe
   // Search for PNG signature (0x89 0x50 0x4E 0x47)
   let mut i = 0
   while i + 4 <= bytes.length() {
-    if bytes[i] == 0x89 && bytes[i + 1] == 0x50 && 
-       bytes[i + 2] == 0x4E && bytes[i + 3] == 0x47 {
+    if bytes[i] == 0x89 &&
+      bytes[i + 1] == 0x50 &&
+      bytes[i + 2] == 0x4E &&
+      bytes[i + 3] == 0x47 {
       let png_end = find_png_end(bytes, i)
       let png_bytes = FixedArray::makei(png_end - i, fn(j) { bytes[i + j] })
       return ImageProcessResult::{
@@ -238,8 +258,10 @@ fn try_extract_bitmap(bytes : FixedArray[Byte], mime : String) -> ImageProcessRe
     if bytes[i] == 0x42 && bytes[i + 1] == 0x4D {
       // BMP file: read size from header (bytes 2-5, little-endian)
       if i + 6 <= bytes.length() {
-        let bmp_size = (bytes[i + 2].to_int()) | (bytes[i + 3].to_int() << 8) | 
-                       (bytes[i + 4].to_int() << 16) | (bytes[i + 5].to_int() << 24)
+        let bmp_size = bytes[i + 2].to_int() |
+          (bytes[i + 3].to_int() << 8) |
+          (bytes[i + 4].to_int() << 16) |
+          (bytes[i + 5].to_int() << 24)
         if bmp_size > 0 && i + bmp_size <= bytes.length() {
           let bmp_bytes = FixedArray::makei(bmp_size, fn(j) { bytes[i + j] })
           return ImageProcessResult::{
@@ -289,8 +311,13 @@ fn try_extract_bitmap(bytes : FixedArray[Byte], mime : String) -> ImageProcessRe
 }
 
 ///| Try to render to Canvas and export as PNG
-///| This is a placeholder - actual implementation requires Canvas API
-fn try_canvas_render(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult {
+
+///|
+/// This is a placeholder - actual implementation requires Canvas API
+fn try_canvas_render(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> ImageProcessResult {
   // TODO: Implement Canvas-based rendering
   // This would require:
   // 1. Create off-screen canvas
@@ -307,8 +334,13 @@ fn try_canvas_render(bytes : FixedArray[Byte], mime : String) -> ImageProcessRes
 }
 
 ///| Keep original format as-is
-///| Useful for native/platform rendering (e.g., Windows) that natively support EMF/WMF
-fn try_keep_original(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult {
+
+///|
+/// Useful for native/platform rendering (e.g., Windows) that natively support EMF/WMF
+fn try_keep_original(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> ImageProcessResult {
   // Simply pass through the original bytes and MIME type
   ImageProcessResult::{
     bytes,
@@ -319,8 +351,12 @@ fn try_keep_original(bytes : FixedArray[Byte], mime : String) -> ImageProcessRes
   }
 }
 
-///| Create download link result
-fn create_download_result(bytes : FixedArray[Byte], mime : String) -> ImageProcessResult {
+///|
+/// Create download link result
+fn create_download_result(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> ImageProcessResult {
   // Use enhanced EMF placeholder for EMF/WMF, regular placeholder for others
   let placeholder_svg = if mime == "image/emf" || mime == "image/wmf" {
     create_emf_placeholder(bytes, mime)
@@ -328,7 +364,7 @@ fn create_download_result(bytes : FixedArray[Byte], mime : String) -> ImageProce
     create_download_placeholder_svg(bytes.length(), mime)
   }
   let svg_bytes = string_to_bytes(placeholder_svg)
-  
+
   ImageProcessResult::{
     bytes: svg_bytes,
     mime: "image/svg+xml",
@@ -338,23 +374,28 @@ fn create_download_result(bytes : FixedArray[Byte], mime : String) -> ImageProce
   }
 }
 
-///| Create download placeholder SVG with enhanced info
+///|
+/// Create download placeholder SVG with enhanced info
 fn create_download_placeholder_svg(size : Int, mime : String) -> String {
-  let size_display = if size > 1024 {
-    "\{size / 1024}KB"
-  } else {
-    "\{size}B"
-  }
-  
+  let size_display = if size > 1024 { "\{size / 1024}KB" } else { "\{size}B" }
+
   // Get format name from mime type
-  let format_name = if mime == "image/png" { "PNG" }
-    else if mime == "image/jpeg" { "JPEG" }
-    else if mime == "image/gif" { "GIF" }
-    else if mime == "image/bmp" { "BMP" }
-    else if mime == "image/emf" { "EMF" }
-    else if mime == "image/wmf" { "WMF" }
-    else { "IMG" }
-  
+  let format_name = if mime == "image/png" {
+    "PNG"
+  } else if mime == "image/jpeg" {
+    "JPEG"
+  } else if mime == "image/gif" {
+    "GIF"
+  } else if mime == "image/bmp" {
+    "BMP"
+  } else if mime == "image/emf" {
+    "EMF"
+  } else if mime == "image/wmf" {
+    "WMF"
+  } else {
+    "IMG"
+  }
+
   "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"150\" viewBox=\"0 0 200 150\">" +
   "<rect width=\"200\" height=\"150\" fill=\"#f6f8fa\" stroke=\"#d0d7de\" stroke-width=\"1\" rx=\"4\"/>" +
   "<rect x=\"70\" y=\"30\" width=\"60\" height=\"50\" fill=\"#e1e4e8\" stroke=\"#d0d7de\" stroke-width=\"1\" rx=\"2\"/>" +
@@ -368,18 +409,29 @@ fn create_download_placeholder_svg(size : Int, mime : String) -> String {
   "</svg>"
 }
 
-///| Create download placeholder (returns data URL)
-fn create_download_placeholder(bytes : FixedArray[Byte], mime : String) -> String {
+///|
+/// Create download placeholder (returns data URL)
+fn create_download_placeholder(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> String {
   let svg = create_download_placeholder_svg(bytes.length(), mime)
   let svg_bytes = string_to_bytes(svg)
   data_url_from_bytes(svg_bytes, "image/svg+xml")
 }
 
 ///| Create EMF/WMF placeholder with dimensions and info
-///| This is a generic function that works across all target formats
-pub fn create_emf_placeholder(bytes : FixedArray[Byte], mime : String) -> String {
+
+///|
+/// This is a generic function that works across all target formats
+pub fn create_emf_placeholder(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> String {
   // Extract dimensions from EMF header
-  let (width, height) = if bytes.length() >= 40 && bytes[0] == 0x01 && bytes[1] == 0x00 {
+  let (width, height) = if bytes.length() >= 40 &&
+    bytes[0] == 0x01 &&
+    bytes[1] == 0x00 {
     // EMF format: read bounds from header
     let reader = BinaryReader::make(bytes)
     let left = reader.i32(8)
@@ -388,7 +440,11 @@ pub fn create_emf_placeholder(bytes : FixedArray[Byte], mime : String) -> String
     let bottom = reader.i32(20)
     let w = right - left
     let h = bottom - top
-    if w > 0 && h > 0 { (w, h) } else { (200, 150) }
+    if w > 0 && h > 0 {
+      (w, h)
+    } else {
+      (200, 150)
+    }
   } else {
     (200, 150)
   }
@@ -399,7 +455,13 @@ pub fn create_emf_placeholder(bytes : FixedArray[Byte], mime : String) -> String
     "\{bytes.length()}B"
   }
 
-  let format_name = if mime == "image/emf" { "EMF" } else if mime == "image/wmf" { "WMF" } else { "IMG" }
+  let format_name = if mime == "image/emf" {
+    "EMF"
+  } else if mime == "image/wmf" {
+    "WMF"
+  } else {
+    "IMG"
+  }
 
   // Create SVG placeholder with actual dimensions
   "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\{width}\" height=\"\{height}\" viewBox=\"0 0 \{width} \{height}\">" +
@@ -413,14 +475,19 @@ pub fn create_emf_placeholder(bytes : FixedArray[Byte], mime : String) -> String
   "</svg>"
 }
 
-///| Create EMF placeholder data URL
-pub fn create_emf_placeholder_url(bytes : FixedArray[Byte], mime : String) -> String {
+///|
+/// Create EMF placeholder data URL
+pub fn create_emf_placeholder_url(
+  bytes : FixedArray[Byte],
+  mime : String,
+) -> String {
   let svg = create_emf_placeholder(bytes, mime)
   let svg_bytes = string_to_bytes(svg)
   data_url_from_bytes(svg_bytes, "image/svg+xml")
 }
 
-///| Convert string to bytes (UTF-8)
+///|
+/// Convert string to bytes (UTF-8)
 fn string_to_bytes(s : String) -> FixedArray[Byte] {
   let len = String::length(s)
   FixedArray::makei(len, fn(i) { s[i].to_byte() })

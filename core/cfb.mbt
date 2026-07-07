@@ -1,6 +1,7 @@
 ///| CFB/OLE container parser for MS-DOC files
 
-///| Convert ASCII uppercase to lowercase for case-insensitive map keys
+///|
+/// Convert ASCII uppercase to lowercase for case-insensitive map keys
 fn ascii_to_lower(s : String) -> String {
   let len = String::length(s)
   let mut has_upper = false
@@ -23,10 +24,11 @@ fn ascii_to_lower(s : String) -> String {
     if ch >= 0x41 && ch <= 0x5A {
       match (ch + 0x20).to_char() {
         Some(c) => sb <+ "\{c}"
-        None => match s[i].to_char() {
-          Some(c) => sb <+ "\{c}"
-          None => ignore(ch)
-        }
+        None =>
+          match s[i].to_char() {
+            Some(c) => sb <+ "\{c}"
+            None => ignore(ch)
+          }
       }
     } else {
       match s[i].to_char() {
@@ -39,7 +41,8 @@ fn ascii_to_lower(s : String) -> String {
   sb.to_string()
 }
 
-///| CFB directory entry
+///|
+/// CFB directory entry
 pub struct CFBEntry {
   id : Int
   name : String
@@ -52,7 +55,8 @@ pub struct CFBEntry {
   stream_size : Int
 }
 
-///| CFB container result
+///|
+/// CFB container result
 pub struct CFBContainer {
   bytes : FixedArray[Byte]
   major_version : Int
@@ -68,12 +72,13 @@ pub struct CFBContainer {
   stream_map : Map[String, Int]
 }
 
-///| Read a sector at absolute position
+///|
+/// Read a sector at absolute position
 fn read_sector_absolute(
   bytes : FixedArray[Byte],
   sector_size : Int,
   sid : Int,
-) -> Option[FixedArray[Byte]] {
+) -> FixedArray[Byte]? {
   let start = 512 + sid * sector_size
   let end = start + sector_size
   if start < 0 || end > bytes.length() {
@@ -83,12 +88,9 @@ fn read_sector_absolute(
   }
 }
 
-///| Collect sector chain following FAT
-fn collect_chain(
-  start_sid : Int,
-  fat : Array[Int],
-  limit : Int,
-) -> Array[Int] {
+///|
+/// Collect sector chain following FAT
+fn collect_chain(start_sid : Int, fat : Array[Int], limit : Int) -> Array[Int] {
   let chain = Array::new()
   let mut sid = start_sid
   let mut counter = 0
@@ -96,7 +98,7 @@ fn collect_chain(
     chain.push(sid)
     let next = fat[sid]
     if is_special_sector_id(next) {
-      break  // End of chain (ENDOFCHAIN/FREESECT/FATSECT/DIFSECT)
+      break // End of chain (ENDOFCHAIN/FREESECT/FATSECT/DIFSECT)
     }
     sid = next
     counter += 1
@@ -107,7 +109,8 @@ fn collect_chain(
   chain
 }
 
-///| Read bytes from sector chain (optimized: no per-sector allocation)
+///|
+/// Read bytes from sector chain (optimized: no per-sector allocation)
 fn read_chain_bytes(
   bytes : FixedArray[Byte],
   sector_size : Int,
@@ -120,7 +123,10 @@ fn read_chain_bytes(
   }
   let chain = collect_chain(start_sid, fat, MAX_CHAIN_SECTORS)
   warnings.push("read_chain_bytes: chain length=\{chain.length()}")
-  let out : FixedArray[Byte] = FixedArray::make(chain.length() * sector_size, b'\x00')
+  let out : FixedArray[Byte] = FixedArray::make(
+    chain.length() * sector_size,
+    b'\x00',
+  )
   let mut out_offset = 0
   let mut skipped = 0
   for sid in chain {
@@ -142,12 +148,18 @@ fn read_chain_bytes(
   out
 }
 
-///| Decode UTF-16LE name string
-fn decode_utf16le_name(reader : BinaryReader, entry_offset : Int, byte_length : Int) -> String {
+///|
+/// Decode UTF-16LE name string
+fn decode_utf16le_name(
+  reader : BinaryReader,
+  entry_offset : Int,
+  byte_length : Int,
+) -> String {
   reader.utf16le(entry_offset, byte_length)
 }
 
-///| Parse CFB/OLE container
+///|
+/// Parse CFB/OLE container
 pub fn parse_cfb(
   input : FixedArray[Byte],
   warnings : Array[String],
@@ -171,7 +183,9 @@ pub fn parse_cfb(
   let _num_dir_sectors = reader.u32(40)
   let num_fat_sectors = reader.u32(44)
   let first_dir_sector = reader.u32(48)
-  warnings.push("Header: sectorShift=\{sector_shift} sectorSize=\{sector_size} numFatSectors=\{num_fat_sectors} firstDirSector=\{first_dir_sector}")
+  warnings.push(
+    "Header: sectorShift=\{sector_shift} sectorSize=\{sector_size} numFatSectors=\{num_fat_sectors} firstDirSector=\{first_dir_sector}",
+  )
   let _transaction_signature = reader.u32(52)
   let mini_stream_cutoff_size = reader.u32(56)
   let first_mini_fat_sector = reader.u32(60)
@@ -219,7 +233,9 @@ pub fn parse_cfb(
   }
 
   if num_fat_sectors > 0 && difat.length() < num_fat_sectors {
-    warnings.push("FAT sector count mismatch: header says \{num_fat_sectors}, found \{difat.length()}")
+    warnings.push(
+      "FAT sector count mismatch: header says \{num_fat_sectors}, found \{difat.length()}",
+    )
   }
 
   // Build FAT table
@@ -235,15 +251,21 @@ pub fn parse_cfb(
       None => ignore(fat_sid)
     }
   }
-  warnings.push("FAT length: \{fat.length()}, first few: \{if fat.length() > 0 { fat[0] } else { -1 }}, \{if fat.length() > 1 { fat[1] } else { -1 }}, \{if fat.length() > 2 { fat[2] } else { -1 }}")
+  warnings.push(
+    "FAT length: \{fat.length()}, first few: \{if fat.length() > 0 { fat[0] } else { -1 }}, \{if fat.length() > 1 { fat[1] } else { -1 }}, \{if fat.length() > 2 { fat[2] } else { -1 }}",
+  )
   if first_dir_sector >= 0 && first_dir_sector < fat.length() {
     warnings.push("FAT[\{first_dir_sector}] = \{fat[first_dir_sector]}")
   } else {
-    warnings.push("first_dir_sector \{first_dir_sector} out of FAT range (0-\{fat.length() - 1})")
+    warnings.push(
+      "first_dir_sector \{first_dir_sector} out of FAT range (0-\{fat.length() - 1})",
+    )
   }
 
   // Read directory entries
-  let directory_bytes = read_chain_bytes(bytes, sector_size, first_dir_sector, fat, warnings)
+  let directory_bytes = read_chain_bytes(
+    bytes, sector_size, first_dir_sector, fat, warnings,
+  )
   warnings.push("Directory bytes length: \{directory_bytes.length()}")
   let directory_reader = BinaryReader::make(directory_bytes)
   let entries = Array::new()
@@ -254,9 +276,11 @@ pub fn parse_cfb(
     // Decode UTF-16LE name to ASCII
     // name_length is in bytes (including 2-byte null terminator)
     let name = if name_length > 2 {
-      let byte_length = name_length - 2  // Subtract 2 for UTF-16LE null terminator
+      let byte_length = name_length - 2 // Subtract 2 for UTF-16LE null terminator
       if id < 5 {
-        warnings.push("Entry[\{id}] name_length=\{name_length} byte_length=\{byte_length}")
+        warnings.push(
+          "Entry[\{id}] name_length=\{name_length} byte_length=\{byte_length}",
+        )
       }
       decode_utf16le_name(directory_reader, offset, byte_length)
     } else {
@@ -288,7 +312,9 @@ pub fn parse_cfb(
   // Find root entry and log all entries
   let mut root_id = 0
   for entry in entries {
-    warnings.push("Entry[\{entry.id}]: name='\{entry.name}' type=\{entry.object_type}")
+    warnings.push(
+      "Entry[\{entry.id}]: name='\{entry.name}' type=\{entry.object_type}",
+    )
     if entry.object_type == 5 {
       root_id = entry.id
     }
@@ -297,7 +323,9 @@ pub fn parse_cfb(
   // Read Mini-FAT sectors
   let mini_fat = Array::new()
   if num_mini_fat_sectors > 0 && first_mini_fat_sector >= 0 {
-    let mini_fat_bytes = read_chain_bytes(bytes, sector_size, first_mini_fat_sector, fat, warnings)
+    let mini_fat_bytes = read_chain_bytes(
+      bytes, sector_size, first_mini_fat_sector, fat, warnings,
+    )
     let mini_fat_reader = BinaryReader::make(mini_fat_bytes)
     let mut i = 0
     while i + 4 <= mini_fat_bytes.length() {
@@ -342,7 +370,8 @@ pub fn parse_cfb(
   }
 }
 
-///| Read a stream from the Mini-Stream (optimized: no extra trim copy)
+///|
+/// Read a stream from the Mini-Stream (optimized: no extra trim copy)
 fn read_mini_stream(
   container : CFBContainer,
   entry : CFBEntry,
@@ -350,8 +379,13 @@ fn read_mini_stream(
   if entry.start_sector < 0 || container.mini_fat.length() == 0 {
     return FixedArray::make(0, b'\x00')
   }
-  let chain = collect_chain(entry.start_sector, container.mini_fat, MAX_CHAIN_SECTORS)
-  let result_len = if entry.stream_size > 0 && entry.stream_size < chain.length() * container.mini_sector_size {
+  let chain = collect_chain(
+    entry.start_sector,
+    container.mini_fat,
+    MAX_CHAIN_SECTORS,
+  )
+  let result_len = if entry.stream_size > 0 &&
+    entry.stream_size < chain.length() * container.mini_sector_size {
     entry.stream_size
   } else {
     chain.length() * container.mini_sector_size
@@ -359,11 +393,19 @@ fn read_mini_stream(
   let out : FixedArray[Byte] = FixedArray::make(result_len, b'\x00')
   let mut out_offset = 0
   for mini_sid in chain {
-    if out_offset >= result_len { break }
+    if out_offset >= result_len {
+      break
+    }
     let src_start = mini_sid * container.mini_sector_size
     let src_end = src_start + container.mini_sector_size
-    if src_end > container.root_stream_bytes.length() { break }
-    let copy_len = if result_len - out_offset < container.mini_sector_size { result_len - out_offset } else { container.mini_sector_size }
+    if src_end > container.root_stream_bytes.length() {
+      break
+    }
+    let copy_len = if result_len - out_offset < container.mini_sector_size {
+      result_len - out_offset
+    } else {
+      container.mini_sector_size
+    }
     let mut ci = 0
     while ci < copy_len {
       out[out_offset + ci] = container.root_stream_bytes[src_start + ci]
@@ -374,11 +416,12 @@ fn read_mini_stream(
   out
 }
 
-///| Get stream bytes for an entry by index
+///|
+/// Get stream bytes for an entry by index
 pub fn cfb_get_stream_by_id(
   container : CFBContainer,
   entry_id : Int,
-) -> Option[FixedArray[Byte]] {
+) -> FixedArray[Byte]? {
   if entry_id < 0 || entry_id >= container.entries.length() {
     return None
   }
@@ -389,23 +432,28 @@ pub fn cfb_get_stream_by_id(
   if entry.object_type == 5 {
     return Some(container.root_stream_bytes)
   }
-  if entry.stream_size < container.mini_stream_cutoff_size && entry.start_sector >= 0 && container.mini_fat.length() > 0 {
+  if entry.stream_size < container.mini_stream_cutoff_size &&
+    entry.start_sector >= 0 &&
+    container.mini_fat.length() > 0 {
     return Some(read_mini_stream(container, entry))
   }
-  Some(read_chain_bytes(
-    container.bytes,
-    container.sector_size,
-    entry.start_sector,
-    container.fat,
-    container.warnings,
-  ))
+  Some(
+    read_chain_bytes(
+      container.bytes,
+      container.sector_size,
+      entry.start_sector,
+      container.fat,
+      container.warnings,
+    ),
+  )
 }
 
-///| Find a directory entry by exact name (case-insensitive)
+///|
+/// Find a directory entry by exact name (case-insensitive)
 pub fn cfb_find_entry_exact(
   container : CFBContainer,
   name : String,
-) -> Option[CFBEntry] {
+) -> CFBEntry? {
   for entry in container.entries {
     if entry.name.equal_ignore_ascii_case(name) {
       return Some(entry)
@@ -414,11 +462,9 @@ pub fn cfb_find_entry_exact(
   None
 }
 
-///| Find a directory entry by name (exact or contains match)
-pub fn cfb_find_entry(
-  container : CFBContainer,
-  name : String,
-) -> Option[CFBEntry] {
+///|
+/// Find a directory entry by name (exact or contains match)
+pub fn cfb_find_entry(container : CFBContainer, name : String) -> CFBEntry? {
   match cfb_find_entry_exact(container, name) {
     Some(entry) => Some(entry)
     None => {
@@ -432,7 +478,8 @@ pub fn cfb_find_entry(
   }
 }
 
-///| Walk the sibling tree in-order, collecting entries
+///|
+/// Walk the sibling tree in-order, collecting entries
 fn cfb_walk_siblings(
   container : CFBContainer,
   entry_id : Int,
@@ -447,7 +494,8 @@ fn cfb_walk_siblings(
   cfb_walk_siblings(container, entry.right_sibling_id, result)
 }
 
-///| List children of a directory entry by walking the child/sibling tree
+///|
+/// List children of a directory entry by walking the child/sibling tree
 pub fn cfb_list_children(
   container : CFBContainer,
   parent : CFBEntry,
@@ -457,13 +505,12 @@ pub fn cfb_list_children(
   result
 }
 
-///| Resolve a directory entry by path (e.g. "/WordDocument", "/ObjectPool/00000001")
-pub fn cfb_get_entry(
-  container : CFBContainer,
-  path : String,
-) -> Option[CFBEntry] {
+///|
+/// Resolve a directory entry by path (e.g. "/WordDocument", "/ObjectPool/00000001")
+pub fn cfb_get_entry(container : CFBContainer, path : String) -> CFBEntry? {
   if path == "/" {
-    return if container.root_id >= 0 && container.root_id < container.entries.length() {
+    return if container.root_id >= 0 &&
+      container.root_id < container.entries.length() {
       Some(container.entries[container.root_id])
     } else {
       None
@@ -499,11 +546,9 @@ pub fn cfb_get_entry(
   }
 }
 
-///| Find an entry by name using DFS from root
-pub fn cfb_find_by_name(
-  container : CFBContainer,
-  name : String,
-) -> Option[CFBEntry] {
+///|
+/// Find an entry by name using DFS from root
+pub fn cfb_find_by_name(container : CFBContainer, name : String) -> CFBEntry? {
   if container.root_id < 0 || container.root_id >= container.entries.length() {
     return None
   }
@@ -527,11 +572,12 @@ pub fn cfb_find_by_name(
   None
 }
 
-///| Get stream bytes by name (exact match via map, then fallback to substring)
+///|
+/// Get stream bytes by name (exact match via map, then fallback to substring)
 pub fn cfb_get_stream(
   container : CFBContainer,
   name : String,
-) -> Option[FixedArray[Byte]] {
+) -> FixedArray[Byte]? {
   // Fast path: O(1) map lookup for exact case-insensitive match
   let lower_name = ascii_to_lower(name)
   match container.stream_map.get(lower_name) {
@@ -540,35 +586,44 @@ pub fn cfb_get_stream(
       if entry.object_type == 5 {
         return Some(container.root_stream_bytes)
       }
-      if entry.stream_size < container.mini_stream_cutoff_size && entry.start_sector >= 0 && container.mini_fat.length() > 0 {
+      if entry.stream_size < container.mini_stream_cutoff_size &&
+        entry.start_sector >= 0 &&
+        container.mini_fat.length() > 0 {
         return Some(read_mini_stream(container, entry))
       }
-      return Some(read_chain_bytes(
-        container.bytes,
-        container.sector_size,
-        entry.start_sector,
-        container.fat,
-        container.warnings,
-      ))
+      return Some(
+        read_chain_bytes(
+          container.bytes,
+          container.sector_size,
+          entry.start_sector,
+          container.fat,
+          container.warnings,
+        ),
+      )
     }
     None => ()
   }
   // Slow path: substring match (for streams like "CONTENTS" inside ObjectPool)
   for entry in container.entries {
-    if entry.name.contains(name) && (entry.object_type == 2 || entry.object_type == 5) {
+    if entry.name.contains(name) &&
+      (entry.object_type == 2 || entry.object_type == 5) {
       if entry.object_type == 5 {
         return Some(container.root_stream_bytes)
       }
-      if entry.stream_size < container.mini_stream_cutoff_size && entry.start_sector >= 0 && container.mini_fat.length() > 0 {
+      if entry.stream_size < container.mini_stream_cutoff_size &&
+        entry.start_sector >= 0 &&
+        container.mini_fat.length() > 0 {
         return Some(read_mini_stream(container, entry))
       }
-      return Some(read_chain_bytes(
-        container.bytes,
-        container.sector_size,
-        entry.start_sector,
-        container.fat,
-        container.warnings,
-      ))
+      return Some(
+        read_chain_bytes(
+          container.bytes,
+          container.sector_size,
+          entry.start_sector,
+          container.fat,
+          container.warnings,
+        ),
+      )
     }
   }
   None

@@ -1,6 +1,7 @@
 ///| CLX / Piece Table parser for MS-DOC files
 
-///| Piece in the piece table
+///|
+/// Piece in the piece table
 pub struct Piece {
   index : Int
   compressed : Bool
@@ -12,18 +13,21 @@ pub struct Piece {
   actual_byte_end : Int
 }
 
-///| Piece table
+///|
+/// Piece table
 pub struct PieceTable {
   cps : Array[Int]
   pieces : Array[Piece]
 }
 
-///| CLX structure
+///|
+/// CLX structure
 pub struct CLX {
   pcdt_lcb : Int
   piece_table : PieceTable
 }
 
+///|
 fn cp1252_to_unicode(code : Int) -> Int {
   match code {
     0x82 => 0x201A
@@ -55,7 +59,9 @@ fn cp1252_to_unicode(code : Int) -> Int {
 }
 
 ///| Decode compressed (Windows-1252) text from view (zero-copy)
-///| Optimized: uses write_char instead of string interpolation
+
+///|
+/// Optimized: uses write_char instead of string interpolation
 fn decode_compressed_view(bytes : ArrayView[Byte]) -> String {
   let sb = StringBuilder::new()
   let len = bytes.length()
@@ -73,7 +79,9 @@ fn decode_compressed_view(bytes : ArrayView[Byte]) -> String {
 }
 
 ///| Decode UTF-16LE text from view (zero-copy)
-///| Optimized: uses write_char instead of string interpolation
+
+///|
+/// Optimized: uses write_char instead of string interpolation
 fn decode_unicode_view(bytes : ArrayView[Byte]) -> String {
   let sb = StringBuilder::new()
   let len = bytes.length()
@@ -87,7 +95,9 @@ fn decode_unicode_view(bytes : ArrayView[Byte]) -> String {
       let hi2 = bytes[i + 3].to_int()
       let low_surrogate = lo2 | (hi2 << 8)
       if low_surrogate >= 0xDC00 && low_surrogate <= 0xDFFF {
-        let supplementary = 0x10000 + ((code - 0xD800) << 10) + (low_surrogate - 0xDC00)
+        let supplementary = 0x10000 +
+          ((code - 0xD800) << 10) +
+          (low_surrogate - 0xDC00)
         match supplementary.to_char() {
           Some(c) => sb.write_char(if c == '\r' { '\n' } else { c })
           None => ignore(code)
@@ -105,7 +115,8 @@ fn decode_unicode_view(bytes : ArrayView[Byte]) -> String {
   sb.to_string()
 }
 
-///| Parse PlcPcd (piece table)
+///|
+/// Parse PlcPcd (piece table)
 fn parse_plc_pcd(bytes : FixedArray[Byte]) -> PieceTable raise {
   if bytes.length() == 0 {
     raise CfbError("Empty PlcPcd")
@@ -129,7 +140,11 @@ fn parse_plc_pcd(bytes : FixedArray[Byte]) -> PieceTable raise {
     let cp_start = if i < cps.length() { cps[i] } else { 0 }
     let cp_end = if i + 1 < cps.length() { cps[i + 1] } else { cp_start }
     let actual_byte_start = if compressed { fc / 2 } else { fc }
-    let byte_length = if compressed { cp_end - cp_start } else { (cp_end - cp_start) * 2 }
+    let byte_length = if compressed {
+      cp_end - cp_start
+    } else {
+      (cp_end - cp_start) * 2
+    }
 
     pieces.push(Piece::{
       index: i,
@@ -147,17 +162,19 @@ fn parse_plc_pcd(bytes : FixedArray[Byte]) -> PieceTable raise {
   PieceTable::{ cps, pieces }
 }
 
-///| Extract text from a piece (zero-copy via view)
+///|
+/// Extract text from a piece (zero-copy via view)
 pub fn extract_piece_text(
   word_bytes : FixedArray[Byte],
   piece : Piece,
 ) -> String {
-  let view = word_bytes.view(start=piece.actual_byte_start, end=piece.actual_byte_end)
+  let view = word_bytes.view(
+    start=piece.actual_byte_start,
+    end=piece.actual_byte_end,
+  )
   if piece.compressed {
     decode_compressed_view(view)
   } else {
     decode_unicode_view(view)
   }
 }
-
-

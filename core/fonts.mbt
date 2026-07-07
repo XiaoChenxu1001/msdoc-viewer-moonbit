@@ -1,4 +1,5 @@
-﻿///| Font Family Name (FFN) record
+///|
+/// Font Family Name (FFN) record
 pub struct Font {
   index : Int
   cb_fn_m1 : Int
@@ -12,26 +13,31 @@ pub struct Font {
   alt_name : String
 }
 
-///| STTBF_FFN header
+///|
+/// STTBF_FFN header
 pub struct FontsHeader {
   c_data : Int
   cb_extra : Int
 }
 
-///| Parsed fonts collection
+///|
+/// Parsed fonts collection
 pub struct FontsCollection {
-  header : Option[FontsHeader]
+  header : FontsHeader?
   fonts : Array[Font]
 }
 
-///| Result of decode_utf16_z: string value and next read offset
+///|
+/// Result of decode_utf16_z: string value and next read offset
 pub struct Utf16ZResult {
   value : String
   next_offset : Int
 }
 
 ///| Read a null-terminated UTF-16LE string starting at offset.
-///| Returns the decoded string and the offset past the null terminator.
+
+///|
+/// Returns the decoded string and the offset past the null terminator.
 fn decode_utf16_z(bytes : FixedArray[Byte], offset : Int) -> Utf16ZResult {
   let mut end = offset
   while end + 1 < bytes.length() {
@@ -43,13 +49,19 @@ fn decode_utf16_z(bytes : FixedArray[Byte], offset : Int) -> Utf16ZResult {
   let byte_length = end - offset
   let reader = BinaryReader::make(bytes)
   let value = reader.utf16le(offset, byte_length)
-  let next_offset = if end + 2 <= bytes.length() { end + 2 } else { bytes.length() }
+  let next_offset = if end + 2 <= bytes.length() {
+    end + 2
+  } else {
+    bytes.length()
+  }
   Utf16ZResult::{ value, next_offset }
 }
 
 ///| Parse a single FFN (Font Family Name) record.
-///| Returns null if record_bytes is empty.
-fn parse_ffn(record_bytes : FixedArray[Byte], index : Int) -> Option[Font] {
+
+///|
+/// Returns null if record_bytes is empty.
+fn parse_ffn(record_bytes : FixedArray[Byte], index : Int) -> Font? {
   if record_bytes.length() == 0 {
     return None
   }
@@ -66,7 +78,10 @@ fn parse_ffn(record_bytes : FixedArray[Byte], index : Int) -> Option[Font] {
   let mut alt_name = ""
   if record_bytes.length() > names_offset {
     let full_reader = BinaryReader::make(record_bytes)
-    let full = full_reader.utf16z(names_offset, record_bytes.length() - names_offset)
+    let full = full_reader.utf16z(
+      names_offset,
+      record_bytes.length() - names_offset,
+    )
     let parts = String::split(full, "\u{0000}")
     let non_empty = Array::new()
     for part in parts {
@@ -103,23 +118,24 @@ fn parse_ffn(record_bytes : FixedArray[Byte], index : Int) -> Option[Font] {
 }
 
 ///| Parse STTBF_FFN from FIB.
+
 ///| table_bytes: the full Word document table bytes.
-///| fib_rg_fc_lcb: the FIB FC/LCB table containing fc_sttbf_ffn and lcb_sttbf_ffn.
+
+///|
+/// fib_rg_fc_lcb: the FIB FC/LCB table containing fc_sttbf_ffn and lcb_sttbf_ffn.
 pub fn parse_fonts(
   table_bytes : FixedArray[Byte],
   fc_sttbf_ffn : Int,
   lcb_sttbf_ffn : Int,
 ) -> FontsCollection {
-  if fc_sttbf_ffn < 0 || lcb_sttbf_ffn <= 0 || fc_sttbf_ffn + lcb_sttbf_ffn > table_bytes.length() {
-    return FontsCollection::{
-      header: None,
-      fonts: [],
-    }
+  if fc_sttbf_ffn < 0 ||
+    lcb_sttbf_ffn <= 0 ||
+    fc_sttbf_ffn + lcb_sttbf_ffn > table_bytes.length() {
+    return FontsCollection::{ header: None, fonts: [] }
   }
-  let bytes = FixedArray::makei(
-    lcb_sttbf_ffn,
-    fn(i) { table_bytes[fc_sttbf_ffn + i] },
-  )
+  let bytes = FixedArray::makei(lcb_sttbf_ffn, fn(i) {
+    table_bytes[fc_sttbf_ffn + i]
+  })
   let reader = BinaryReader::make(bytes)
   let c_data = reader.u16(0)
   let cb_extra = reader.u16(2)
@@ -134,10 +150,9 @@ pub fn parse_fonts(
     } else {
       bytes.length() - offset
     }
-    let record_bytes = FixedArray::makei(
-      actual_length,
-      fn(j) { bytes[offset + j] },
-    )
+    let record_bytes = FixedArray::makei(actual_length, fn(j) {
+      bytes[offset + j]
+    })
     match parse_ffn(record_bytes, i) {
       Some(font) => fonts.push(font)
       None => ignore(i)
@@ -145,14 +160,12 @@ pub fn parse_fonts(
     offset += record_length + cb_extra
     i += 1
   }
-  FontsCollection::{
-    header: Some(FontsHeader::{ c_data, cb_extra }),
-    fonts,
-  }
+  FontsCollection::{ header: Some(FontsHeader::{ c_data, cb_extra }), fonts }
 }
 
-///| Look up a font by its index in the collection.
-pub fn font_by_index(collection : FontsCollection, index : Int) -> Option[Font] {
+///|
+/// Look up a font by its index in the collection.
+pub fn font_by_index(collection : FontsCollection, index : Int) -> Font? {
   if index < 0 || index >= collection.fonts.length() {
     None
   } else {
@@ -160,7 +173,8 @@ pub fn font_by_index(collection : FontsCollection, index : Int) -> Option[Font] 
   }
 }
 
-///| Parse fonts using raw FIB reader and FibRgFcLcb start offset
+///|
+/// Parse fonts using raw FIB reader and FibRgFcLcb start offset
 pub fn parse_fonts_from_fib(
   table_bytes : FixedArray[Byte],
   fib_reader : BinaryReader,
@@ -169,11 +183,10 @@ pub fn parse_fonts_from_fib(
   // SttbfFfn is entry 15 in FibRgFcLcb
   let fc_sttbf_ffn = fib_reader.u32(fib_rgfc_lcb_start + 15 * 8)
   let lcb_sttbf_ffn = fib_reader.u32(fib_rgfc_lcb_start + 15 * 8 + 4)
-  if fc_sttbf_ffn < 0 || lcb_sttbf_ffn <= 0 || fc_sttbf_ffn + lcb_sttbf_ffn > table_bytes.length() {
-    return FontsCollection::{
-      header: None,
-      fonts: [],
-    }
+  if fc_sttbf_ffn < 0 ||
+    lcb_sttbf_ffn <= 0 ||
+    fc_sttbf_ffn + lcb_sttbf_ffn > table_bytes.length() {
+    return FontsCollection::{ header: None, fonts: [] }
   }
   parse_fonts(table_bytes, fc_sttbf_ffn, lcb_sttbf_ffn)
 }

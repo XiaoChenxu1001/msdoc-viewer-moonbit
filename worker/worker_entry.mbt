@@ -1,7 +1,9 @@
 ///| Web Worker entry point for MS-DOC parsing
+
 ///| This file is the MoonBit logic; the actual Worker setup is in worker_wrapper.js
 
-///| Parse MS-DOC and return text content
+///|
+/// Parse MS-DOC and return text content
 pub fn worker_parse(input : FixedArray[Byte]) -> String {
   try {
     let result = @core.parse_ms_doc(input)
@@ -11,7 +13,8 @@ pub fn worker_parse(input : FixedArray[Byte]) -> String {
   }
 }
 
-///| Render MS-DOC to HTML+CSS
+///|
+/// Render MS-DOC to HTML+CSS
 pub fn worker_render(input : FixedArray[Byte]) -> String {
   try {
     let parsed = @core.parse_ms_doc(input)
@@ -37,7 +40,8 @@ pub fn worker_render(input : FixedArray[Byte]) -> String {
   }
 }
 
-///| Parse and render MS-DOC to HTML
+///|
+/// Parse and render MS-DOC to HTML
 pub fn worker_parse_to_html(input : FixedArray[Byte]) -> String {
   try {
     let result = @core.render_ms_doc(input)
@@ -48,8 +52,13 @@ pub fn worker_parse_to_html(input : FixedArray[Byte]) -> String {
 }
 
 ///| Extract a single image from document data
-///| Returns base64 data URL or error
-pub fn worker_extract_image(input : FixedArray[Byte], picture_offset : Int) -> String {
+
+///|
+/// Returns base64 data URL or error
+pub fn worker_extract_image(
+  input : FixedArray[Byte],
+  picture_offset : Int,
+) -> String {
   try {
     let warnings = Array::new()
     let container = @core.parse_cfb(input, warnings)
@@ -68,8 +77,13 @@ pub fn worker_extract_image(input : FixedArray[Byte], picture_offset : Int) -> S
 }
 
 ///| Extract all images from document data in parallel batches
-///| Returns JSON array of {offset, data_url} pairs
-pub fn worker_extract_all_images(input : FixedArray[Byte], offsets_json : String) -> String {
+
+///|
+/// Returns JSON array of {offset, data_url} pairs
+pub fn worker_extract_all_images(
+  input : FixedArray[Byte],
+  offsets_json : String,
+) -> String {
   try {
     let warnings = Array::new()
     let container = @core.parse_cfb(input, warnings)
@@ -89,7 +103,9 @@ pub fn worker_extract_all_images(input : FixedArray[Byte], offsets_json : String
       while i < len && (offsets_json[i] < '0' || offsets_json[i] > '9') {
         i += 1
       }
-      if i >= len { break }
+      if i >= len {
+        break
+      }
       // Parse number
       let mut num = 0
       while i < len && offsets_json[i] >= '0' && offsets_json[i] <= '9' {
@@ -102,12 +118,16 @@ pub fn worker_extract_all_images(input : FixedArray[Byte], offsets_json : String
       let oSuffix = "\"}"
       match @core.extract_image(extractor, num) {
         Some(asset) => {
-          if !first { sb <+ "," }
+          if !first {
+            sb <+ ","
+          }
           first = false
           sb <+ "\{oPrefix}\{num}\{oMid}\{asset.data_url}\{oSuffix}"
         }
         None => {
-          if !first { sb <+ "," }
+          if !first {
+            sb <+ ","
+          }
           first = false
           sb <+ "\{oPrefix}\{num}\{oMid}\{oSuffix}"
         }
@@ -120,6 +140,7 @@ pub fn worker_extract_all_images(input : FixedArray[Byte], offsets_json : String
   }
 }
 
+///|
 fn main {
   println("MS-DOC Worker logic loaded")
 }

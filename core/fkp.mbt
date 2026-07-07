@@ -1,6 +1,7 @@
-﻿///| FKP (Formatted Key Page) reader for MS-DOC files
+///| FKP (Formatted Key Page) reader for MS-DOC files
 
-///| CHPX run (character formatting)
+///|
+/// CHPX run (character formatting)
 pub struct ChpxRun {
   cp_start : Int
   cp_end : Int
@@ -9,7 +10,8 @@ pub struct ChpxRun {
   properties : Array[DecodedProperty]
 }
 
-///| PAPX run (paragraph formatting)
+///|
+/// PAPX run (paragraph formatting)
 pub struct PapxRun {
   cp_start : Int
   cp_end : Int
@@ -20,8 +22,12 @@ pub struct PapxRun {
   raw_offset : Int
 }
 
-///| Read CHPX properties from word bytes and decode
-pub fn read_chpx_properties(word_bytes : FixedArray[Byte], offset : Int) -> Array[Byte] {
+///|
+/// Read CHPX properties from word bytes and decode
+pub fn read_chpx_properties(
+  word_bytes : FixedArray[Byte],
+  offset : Int,
+) -> Array[Byte] {
   if offset < 0 || offset >= word_bytes.length() {
     return []
   }
@@ -30,7 +36,11 @@ pub fn read_chpx_properties(word_bytes : FixedArray[Byte], offset : Int) -> Arra
     return []
   }
   let start = offset + 1
-  let end = if start + cb < word_bytes.length() { start + cb } else { word_bytes.length() }
+  let end = if start + cb < word_bytes.length() {
+    start + cb
+  } else {
+    word_bytes.length()
+  }
   let result = Array::new()
   let mut i = start
   while i < end {
@@ -40,8 +50,12 @@ pub fn read_chpx_properties(word_bytes : FixedArray[Byte], offset : Int) -> Arra
   result
 }
 
-///| Read and decode CHPX properties directly
-pub fn read_chpx_decoded(word_bytes : FixedArray[Byte], offset : Int) -> Array[DecodedProperty] {
+///|
+/// Read and decode CHPX properties directly
+pub fn read_chpx_decoded(
+  word_bytes : FixedArray[Byte],
+  offset : Int,
+) -> Array[DecodedProperty] {
   if offset < 0 || offset >= word_bytes.length() {
     return []
   }
@@ -50,13 +64,21 @@ pub fn read_chpx_decoded(word_bytes : FixedArray[Byte], offset : Int) -> Array[D
     return []
   }
   let start = offset + 1
-  let end = if start + cb < word_bytes.length() { start + cb } else { word_bytes.length() }
-  let view = word_bytes.view(start=start, end=end)
+  let end = if start + cb < word_bytes.length() {
+    start + cb
+  } else {
+    word_bytes.length()
+  }
+  let view = word_bytes.view(start~, end~)
   decode_grpprl(view)
 }
 
-///| Read PAPX properties from word bytes
-pub fn read_papx_properties(word_bytes : FixedArray[Byte], offset : Int) -> (Int, Array[Byte]) {
+///|
+/// Read PAPX properties from word bytes
+pub fn read_papx_properties(
+  word_bytes : FixedArray[Byte],
+  offset : Int,
+) -> (Int, Array[Byte]) {
   if offset < 0 || offset >= word_bytes.length() {
     return (0, [])
   }
@@ -74,7 +96,11 @@ pub fn read_papx_properties(word_bytes : FixedArray[Byte], offset : Int) -> (Int
   let style_id = reader.u16(body_start)
   let props_start = body_start + 2
   let props_end_raw = body_start + body_size
-  let props_end = if props_end_raw < word_bytes.length() { props_end_raw } else { word_bytes.length() }
+  let props_end = if props_end_raw < word_bytes.length() {
+    props_end_raw
+  } else {
+    word_bytes.length()
+  }
   let properties = Array::new()
   let mut i = props_start
   while i < props_end {
@@ -84,7 +110,8 @@ pub fn read_papx_properties(word_bytes : FixedArray[Byte], offset : Int) -> (Int
   (style_id, properties)
 }
 
-///| Read CHPX runs
+///|
+/// Read CHPX runs
 pub fn read_chpx_runs(
   word_bytes : FixedArray[Byte],
   table_bytes : FixedArray[Byte],
@@ -141,19 +168,17 @@ pub fn read_chpx_runs(
       let fc_end = rgfc[i + 1]
       let b = page_reader.u8(rgb_start + i)
       let chpx_offset = if b > 0 { offset + b * 2 } else { 0 }
-      let properties = if chpx_offset > 0 { read_chpx_decoded(word_bytes, chpx_offset) } else { [] }
+      let properties = if chpx_offset > 0 {
+        read_chpx_decoded(word_bytes, chpx_offset)
+      } else {
+        []
+      }
 
       // Simple CP mapping (without full fcToCp for now)
       let cp_start = fc_start
       let cp_end = fc_end
 
-      runs.push(ChpxRun::{
-        cp_start,
-        cp_end,
-        fc_start,
-        fc_end,
-        properties,
-      })
+      runs.push(ChpxRun::{ cp_start, cp_end, fc_start, fc_end, properties })
     }
   }
 
@@ -173,7 +198,8 @@ pub fn read_chpx_runs(
   runs
 }
 
-///| Read PAPX runs
+///|
+/// Read PAPX runs
 pub fn read_papx_runs(
   word_bytes : FixedArray[Byte],
   table_bytes : FixedArray[Byte],

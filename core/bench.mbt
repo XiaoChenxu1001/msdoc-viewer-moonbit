@@ -1,27 +1,34 @@
 ///| Benchmark wrapper — measures parse and render phases separately
 
-///| Parse only
+///|
+/// Parse only
 pub fn bench_parse(input : FixedArray[Byte]) -> MsDocParseResult raise {
   parse_ms_doc(input)
 }
 
-///| Render only (re-parses internally)
+///|
+/// Render only (re-parses internally)
 pub fn bench_render(input : FixedArray[Byte]) -> RenderResult raise {
   render_ms_doc(input)
 }
 
-///| Phase 1: CFB parsing only
+///|
+/// Phase 1: CFB parsing only
 pub fn bench_cfb_parse(input : FixedArray[Byte]) -> CFBContainer raise {
   let warnings : Array[String] = []
   parse_cfb(input, warnings)
 }
 
-///| Phase 2: Object pool extraction (requires CFB container)
-pub fn bench_extract_object_pool(container : CFBContainer) -> Map[String, Asset] {
+///|
+/// Phase 2: Object pool extraction (requires CFB container)
+pub fn bench_extract_object_pool(
+  container : CFBContainer,
+) -> Map[String, Asset] {
   extract_object_pool(container)
 }
 
-///| Phase 3: Get Data stream from CFB
+///|
+/// Phase 3: Get Data stream from CFB
 pub fn bench_get_data_stream(container : CFBContainer) -> FixedArray[Byte] {
   match cfb_get_stream(container, "Data") {
     Some(bytes) => bytes
@@ -29,7 +36,8 @@ pub fn bench_get_data_stream(container : CFBContainer) -> FixedArray[Byte] {
   }
 }
 
-///| Phase 4: Count object pool entries (for diagnostics)
+///|
+/// Phase 4: Count object pool entries (for diagnostics)
 pub fn bench_count_pool_entries(container : CFBContainer) -> Int {
   let pool_entry = match cfb_find_entry(container, "ObjectPool") {
     Some(e) => e
@@ -42,7 +50,8 @@ pub fn bench_count_pool_entries(container : CFBContainer) -> Int {
   children.length()
 }
 
-///| Phase 5: Get table stream bytes
+///|
+/// Phase 5: Get table stream bytes
 pub fn bench_get_table_stream(container : CFBContainer) -> FixedArray[Byte] {
   let flags = BinaryReader::make(container.bytes).u16(10)
   let table_name = if (flags & 0x0200) != 0 { "1Table" } else { "0Table" }
@@ -52,12 +61,14 @@ pub fn bench_get_table_stream(container : CFBContainer) -> FixedArray[Byte] {
   }
 }
 
-///| Phase 6: Count CFB entries (diagnostics)
+///|
+/// Phase 6: Count CFB entries (diagnostics)
 pub fn bench_count_cfb_entries(container : CFBContainer) -> Int {
   container.entries.length()
 }
 
-///| Phase 7: Get WordDocument stream
+///|
+/// Phase 7: Get WordDocument stream
 pub fn bench_get_word_doc_stream(container : CFBContainer) -> FixedArray[Byte] {
   match cfb_get_stream(container, "WordDocument") {
     Some(bytes) => bytes
@@ -65,7 +76,8 @@ pub fn bench_get_word_doc_stream(container : CFBContainer) -> FixedArray[Byte] {
   }
 }
 
-///| Full parse intermediate state for sub-phase benchmarking
+///|
+/// Full parse intermediate state for sub-phase benchmarking
 pub struct ParseIntermediate {
   word_bytes : FixedArray[Byte]
   table_bytes : FixedArray[Byte]
@@ -87,8 +99,11 @@ pub struct ParseIntermediate {
   style_cache : Map[Int, ResolvedStyle]
 }
 
-///| Parse up to paragraph loop start (returns all intermediate data)
-pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate raise {
+///|
+/// Parse up to paragraph loop start (returns all intermediate data)
+pub fn bench_parse_intermediate(
+  input : FixedArray[Byte],
+) -> ParseIntermediate raise {
   let warnings : Array[String] = []
   let container = parse_cfb(input, warnings)
   let word_bytes = match cfb_get_stream(container, "WordDocument") {
@@ -129,7 +144,10 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
     raise CfbError("No Pcdt marker")
   }
   let lcb = clx_reader.u32(clx_offset + 1)
-  let plc_pcd_view = clx_view.view(start=clx_offset + 5, end=clx_offset + 5 + lcb)
+  let plc_pcd_view = clx_view.view(
+    start=clx_offset + 5,
+    end=clx_offset + 5 + lcb,
+  )
   let plc_reader = BinaryReader::from_view(plc_pcd_view)
   let pcd_count = (lcb - 4) / 12
   if pcd_count <= 0 {
@@ -152,10 +170,19 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
       continue
     }
     let actual_byte_start = if compressed { fc / 2 } else { fc }
-    let byte_length = if compressed { cp_end - cp_start } else { (cp_end - cp_start) * 2 }
+    let byte_length = if compressed {
+      cp_end - cp_start
+    } else {
+      (cp_end - cp_start) * 2
+    }
     let piece = Piece::{
-      index: i, compressed, fc, cp_start, cp_end,
-      actual_byte_start, byte_length,
+      index: i,
+      compressed,
+      fc,
+      cp_start,
+      cp_end,
+      actual_byte_start,
+      byte_length,
       actual_byte_end: actual_byte_start + byte_length,
     }
     let piece_text = extract_piece_text(word_bytes, piece)
@@ -163,7 +190,7 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
     piece_offset += 8
   }
   let full_text = document_text.to_string()
-  let clean_full_text = full_text.replace(old = "\r", new = "\n")
+  let clean_full_text = full_text.replace(old="\r", new="\n")
   let piece_entries = Array::new()
   {
     let mut pe = 0
@@ -185,15 +212,24 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
       pe += 1
     }
   }
-  let chpx_runs = read_chpx_runs_fallback(word_bytes, table_bytes, main_story_end, piece_entries)
-  let papx_runs = read_papx_runs_fallback(word_bytes, table_bytes, main_story_end, piece_entries)
+  let chpx_runs = read_chpx_runs_fallback(
+    word_bytes, table_bytes, main_story_end, piece_entries,
+  )
+  let papx_runs = read_papx_runs_fallback(
+    word_bytes, table_bytes, main_story_end, piece_entries,
+  )
   let stshf_fc = fib_reader.u32(fib_rgfc_lcb_start + 1 * 8)
   let stshf_lcb = fib_reader.u32(fib_rgfc_lcb_start + 1 * 8 + 4)
   let styles = if stshf_lcb > 0 {
     let stshf_view = table_bytes.view(start=stshf_fc, end=stshf_fc + stshf_lcb)
     parse_styles(stshf_view)
   } else {
-    StyleCollection::{ styles: [], style_map: Map([], capacity=16), count: 0, header: None }
+    StyleCollection::{
+      styles: [],
+      style_map: Map([], capacity=16),
+      count: 0,
+      header: None,
+    }
   }
   let fonts = parse_fonts_from_fib(table_bytes, fib_reader, fib_rgfc_lcb_start)
   let object_pool = extract_object_pool(container)
@@ -232,8 +268,11 @@ pub fn bench_parse_intermediate(input : FixedArray[Byte]) -> ParseIntermediate r
   }
 }
 
-///| Phase: Paragraph loop only (given pre-parsed intermediate state)
-pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[ParagraphInfo] {
+///|
+/// Phase: Paragraph loop only (given pre-parsed intermediate state)
+pub fn bench_paragraph_loop(
+  intermediate : ParseIntermediate,
+) -> Array[ParagraphInfo] {
   let paragraphs = Array::new()
   let mut chpx_cursor = 0
   if intermediate.papx_runs.length() > 0 {
@@ -253,10 +292,24 @@ pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[Paragraph
         ri += 1
         continue
       }
-      let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
-      let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
+      let para_text = intermediate.clean_full_text[cp_start:cp_end].to_owned()
+      let papx_result = resolve_papx_run(
+        run,
+        intermediate.styles,
+        intermediate.style_cache,
+      )
       let para_state = papx_result.para_state
-      let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
+      let (segments, new_cursor) = build_char_segments(
+        intermediate.chpx_runs,
+        para_text,
+        cp_start,
+        cp_end,
+        papx_result.resolved_char_props,
+        intermediate.fonts,
+        intermediate.styles,
+        chpx_cursor,
+        intermediate.style_cache,
+      )
       chpx_cursor = new_cursor
       let runs = process_inline_fields(segments, intermediate.resolver)
       let merged_runs = merge_adjacent_runs(runs)
@@ -266,7 +319,7 @@ pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[Paragraph
         if len > 0 {
           let last_ch = clean_para_text[len - 1].to_int()
           if last_ch == 0x0D || last_ch == 0x07 {
-            clean_para_text[0 : len - 1].to_owned()
+            clean_para_text[0:len - 1].to_owned()
           } else {
             clean_para_text
           }
@@ -323,7 +376,8 @@ pub fn bench_paragraph_loop(intermediate : ParseIntermediate) -> Array[Paragraph
   paragraphs
 }
 
-///| Count of paragraphs, runs etc
+///|
+/// Count of paragraphs, runs etc
 pub struct ParseDiagnostics {
   para_count : Int
   chpx_run_count : Int
@@ -333,7 +387,8 @@ pub struct ParseDiagnostics {
   block_count : Int
 }
 
-///| Get diagnostics from a parse result
+///|
+/// Get diagnostics from a parse result
 pub fn bench_get_diagnostics(result : MsDocParseResult) -> ParseDiagnostics {
   ParseDiagnostics::{
     para_count: result.paragraphs.length(),
@@ -345,19 +400,26 @@ pub fn bench_get_diagnostics(result : MsDocParseResult) -> ParseDiagnostics {
   }
 }
 
-///| Get textbox count from a parse result
+///|
+/// Get textbox count from a parse result
 pub fn bench_get_textbox_count(result : MsDocParseResult) -> Int {
   result.textboxes.length()
 }
 
-///| Get textbox info as string
+///|
+/// Get textbox info as string
 pub fn bench_get_textbox_info(result : MsDocParseResult) -> String {
   let sb = StringBuilder::new()
   sb <+ "Textboxes: \{result.textboxes.length()}\n"
   for i in 0..<result.textboxes.length() {
     let tb = result.textboxes[i]
-    let text_preview = if String::length(tb.text) > 50 { tb.text[0:50].to_string() + "..." } else { tb.text }
-    sb <+ "  TB[\{i}]: shape_id=\{tb.shape_id}, cp=\{tb.cp_start}..\{tb.cp_end}, text=\{text_preview}\n"
+    let text_preview = if String::length(tb.text) > 50 {
+      tb.text[0:50].to_string() + "..."
+    } else {
+      tb.text
+    }
+    sb <+
+      "  TB[\{i}]: shape_id=\{tb.shape_id}, cp=\{tb.cp_start}..\{tb.cp_end}, text=\{text_preview}\n"
   }
   sb <+ "Text length: \{String::length(result.text)}\n"
   sb <+ "Paragraphs: \{result.paragraphs.length()}\n"
@@ -380,21 +442,22 @@ pub fn bench_get_textbox_info(result : MsDocParseResult) -> String {
   sb.to_string()
 }
 
-///| Diagnose textbox extraction from raw FIB
+///|
+/// Diagnose textbox extraction from raw FIB
 pub fn bench_diagnose_txbx(input : FixedArray[Byte]) -> String raise {
   let sb = StringBuilder::new()
   let warnings = Array::new()
   let container = parse_cfb(input, warnings)
   let word_bytes = match cfb_get_stream(container, "WordDocument") {
     Some(bytes) => bytes
-    None => { return "WordDocument stream not found" }
+    None => return "WordDocument stream not found"
   }
   let flags = BinaryReader::make(word_bytes).u16(10)
   let f_which_tbl_stm = if (flags & 0x0200) != 0 { 1 } else { 0 }
   let table_name = if f_which_tbl_stm == 1 { "1Table" } else { "0Table" }
   let table_bytes = match cfb_get_stream(container, table_name) {
     Some(bytes) => bytes
-    None => { return "Table stream not found" }
+    None => return "Table stream not found"
   }
 
   let fib_reader = BinaryReader::make(word_bytes)
@@ -416,26 +479,39 @@ pub fn bench_diagnose_txbx(input : FixedArray[Byte]) -> String raise {
   let ccp_edn = fib_reader.u32(cslw_offset + 2 + 8 * 4)
   let ccp_txbx = fib_reader.u32(cslw_offset + 2 + 9 * 4)
   let ccp_hdr_txbx = fib_reader.u32(cslw_offset + 2 + 10 * 4)
-  sb <+ "FIBRgLw: ccpText=\{ccp_text}, ccpFtn=\{ccp_ftn}, ccpHdd=\{ccp_hdd}, ccpAtn=\{ccp_atn}, ccpEdn=\{ccp_edn}, ccpTxbx=\{ccp_txbx}, ccpHdrTxbx=\{ccp_hdr_txbx}\n"
+  sb <+
+    "FIBRgLw: ccpText=\{ccp_text}, ccpFtn=\{ccp_ftn}, ccpHdd=\{ccp_hdd}, ccpAtn=\{ccp_atn}, ccpEdn=\{ccp_edn}, ccpTxbx=\{ccp_txbx}, ccpHdrTxbx=\{ccp_hdr_txbx}\n"
 
   // Read FibRgFcLcb values for textboxes
   let fc_plcftxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 56 * 8)
   let lcb_plcftxbx_txt = fib_reader.u32(fib_rgfc_lcb_start + 56 * 8 + 4)
   let fc_plcf_fld_txbx = fib_reader.u32(fib_rgfc_lcb_start + 57 * 8)
   let lcb_plcf_fld_txbx = fib_reader.u32(fib_rgfc_lcb_start + 57 * 8 + 4)
-  sb <+ "FibRgFcLcb[56] fcPlcftxbxTxt=\{fc_plcftxbx_txt}, lcbPlcftxbxTxt=\{lcb_plcftxbx_txt}\n"
-  sb <+ "FibRgFcLcb[57] fcPlcfFldTxbx=\{fc_plcf_fld_txbx}, lcbPlcfFldTxbx=\{lcb_plcf_fld_txbx}\n"
+  sb <+
+    "FibRgFcLcb[56] fcPlcftxbxTxt=\{fc_plcftxbx_txt}, lcbPlcftxbxTxt=\{lcb_plcftxbx_txt}\n"
+  sb <+
+    "FibRgFcLcb[57] fcPlcfFldTxbx=\{fc_plcf_fld_txbx}, lcbPlcfFldTxbx=\{lcb_plcf_fld_txbx}\n"
 
   // Also check FibRgFcLcb for plcfSpa (index 40/41)
   let fc_plc_spa_mom = fib_reader.u32(fib_rgfc_lcb_start + 40 * 8)
   let lcb_plc_spa_mom = fib_reader.u32(fib_rgfc_lcb_start + 40 * 8 + 4)
-  sb <+ "FibRgFcLcb[40] fcPlcSpaMom=\{fc_plc_spa_mom}, lcbPlcSpaMom=\{lcb_plc_spa_mom}\n"
+  sb <+
+    "FibRgFcLcb[40] fcPlcSpaMom=\{fc_plc_spa_mom}, lcbPlcSpaMom=\{lcb_plc_spa_mom}\n"
 
   // Try to parse PlcftxbxTxt
-  if ccp_txbx > 0 && lcb_plcftxbx_txt > 0 && fc_plcftxbx_txt + lcb_plcftxbx_txt <= table_bytes.length() {
-    let txbx_view = table_bytes.view(start=fc_plcftxbx_txt, end=fc_plcftxbx_txt + lcb_plcftxbx_txt)
+  if ccp_txbx > 0 &&
+    lcb_plcftxbx_txt > 0 &&
+    fc_plcftxbx_txt + lcb_plcftxbx_txt <= table_bytes.length() {
+    let txbx_view = table_bytes.view(
+      start=fc_plcftxbx_txt,
+      end=fc_plcftxbx_txt + lcb_plcftxbx_txt,
+    )
     let txbx_reader = BinaryReader::from_view(txbx_view)
-    let txbx_count = if lcb_plcftxbx_txt >= 4 { (lcb_plcftxbx_txt - 4) / 26 } else { 0 }
+    let txbx_count = if lcb_plcftxbx_txt >= 4 {
+      (lcb_plcftxbx_txt - 4) / 26
+    } else {
+      0
+    }
     sb <+ "PlcftxbxTxt: count=\{txbx_count}, lcb=\{lcb_plcftxbx_txt}\n"
 
     if txbx_count > 0 {
@@ -450,17 +526,20 @@ pub fn bench_diagnose_txbx(input : FixedArray[Byte]) -> String raise {
         let ftxbxs_base = ftxbxs_offset + i * 22
         let f_reusable = txbx_reader.u16(ftxbxs_base + 8)
         let lid = txbx_reader.u32(ftxbxs_base + 12)
-        sb <+ "  FTXBXS[\{i}]: fReusable=\{f_reusable}, lid=\{lid}, cp=\{txbx_cps[i]}..\{txbx_cps[i + 1]}\n"
+        sb <+
+          "  FTXBXS[\{i}]: fReusable=\{f_reusable}, lid=\{lid}, cp=\{txbx_cps[i]}..\{txbx_cps[i + 1]}\n"
       }
     }
   } else {
-    sb <+ "PlcftxbxTxt: skipped (ccpTxbx=\{ccp_txbx}, lcb=\{lcb_plcftxbx_txt}, fc+lcb=\{fc_plcftxbx_txt + lcb_plcftxbx_txt}, table_len=\{table_bytes.length()})\n"
+    sb <+
+      "PlcftxbxTxt: skipped (ccpTxbx=\{ccp_txbx}, lcb=\{lcb_plcftxbx_txt}, fc+lcb=\{fc_plcftxbx_txt + lcb_plcftxbx_txt}, table_len=\{table_bytes.length()})\n"
   }
 
   sb.to_string()
 }
 
-///| Phase: Only resolve_papx_run for all paragraphs
+///|
+/// Phase: Only resolve_papx_run for all paragraphs
 pub fn bench_resolve_all_papx(intermediate : ParseIntermediate) -> Int {
   let mut count = 0
   for run in intermediate.papx_runs {
@@ -470,14 +549,17 @@ pub fn bench_resolve_all_papx(intermediate : ParseIntermediate) -> Int {
     } else {
       run.cp_end
     }
-    if cp_start >= cp_end { continue }
+    if cp_start >= cp_end {
+      continue
+    }
     ignore(resolve_papx_run(run, intermediate.styles, intermediate.style_cache))
     count += 1
   }
   count
 }
 
-///| Phase: Only build_char_segments for all paragraphs
+///|
+/// Phase: Only build_char_segments for all paragraphs
 pub fn bench_build_all_segments(intermediate : ParseIntermediate) -> Int {
   let mut total_segments = 0
   let mut chpx_cursor = 0
@@ -488,17 +570,34 @@ pub fn bench_build_all_segments(intermediate : ParseIntermediate) -> Int {
     } else {
       run.cp_end
     }
-    if cp_start >= cp_end { continue }
-    let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
-    let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
-    let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
+    if cp_start >= cp_end {
+      continue
+    }
+    let para_text = intermediate.clean_full_text[cp_start:cp_end].to_owned()
+    let papx_result = resolve_papx_run(
+      run,
+      intermediate.styles,
+      intermediate.style_cache,
+    )
+    let (segments, new_cursor) = build_char_segments(
+      intermediate.chpx_runs,
+      para_text,
+      cp_start,
+      cp_end,
+      papx_result.resolved_char_props,
+      intermediate.fonts,
+      intermediate.styles,
+      chpx_cursor,
+      intermediate.style_cache,
+    )
     chpx_cursor = new_cursor
     total_segments += segments.length()
   }
   total_segments
 }
 
-///| Phase: Only process_inline_fields for all paragraphs (with pre-built segments)
+///|
+/// Phase: Only process_inline_fields for all paragraphs (with pre-built segments)
 pub fn bench_process_all_fields(intermediate : ParseIntermediate) -> Int {
   let mut total_runs = 0
   let mut chpx_cursor = 0
@@ -509,10 +608,26 @@ pub fn bench_process_all_fields(intermediate : ParseIntermediate) -> Int {
     } else {
       run.cp_end
     }
-    if cp_start >= cp_end { continue }
-    let para_text = intermediate.clean_full_text[cp_start : cp_end].to_owned()
-    let papx_result = resolve_papx_run(run, intermediate.styles, intermediate.style_cache)
-    let (segments, new_cursor) = build_char_segments(intermediate.chpx_runs, para_text, cp_start, cp_end, papx_result.resolved_char_props, intermediate.fonts, intermediate.styles, chpx_cursor, intermediate.style_cache)
+    if cp_start >= cp_end {
+      continue
+    }
+    let para_text = intermediate.clean_full_text[cp_start:cp_end].to_owned()
+    let papx_result = resolve_papx_run(
+      run,
+      intermediate.styles,
+      intermediate.style_cache,
+    )
+    let (segments, new_cursor) = build_char_segments(
+      intermediate.chpx_runs,
+      para_text,
+      cp_start,
+      cp_end,
+      papx_result.resolved_char_props,
+      intermediate.fonts,
+      intermediate.styles,
+      chpx_cursor,
+      intermediate.style_cache,
+    )
     chpx_cursor = new_cursor
     let runs = process_inline_fields(segments, intermediate.resolver)
     total_runs += runs.length()
@@ -520,7 +635,8 @@ pub fn bench_process_all_fields(intermediate : ParseIntermediate) -> Int {
   total_runs
 }
 
-///| Create KeepOriginal config (skip all image processing)
+///|
+/// Create KeepOriginal config (skip all image processing)
 pub fn bench_config_keep_original() -> ImageProcessorConfig {
   ImageProcessorConfig::{
     primary: ImageStrategy::KeepOriginal,
@@ -530,7 +646,8 @@ pub fn bench_config_keep_original() -> ImageProcessorConfig {
   }
 }
 
-///| Create DownloadLink config (use placeholder)
+///|
+/// Create DownloadLink config (use placeholder)
 pub fn bench_config_download_link() -> ImageProcessorConfig {
   ImageProcessorConfig::{
     primary: ImageStrategy::DownloadLink,
@@ -540,7 +657,8 @@ pub fn bench_config_download_link() -> ImageProcessorConfig {
   }
 }
 
-///| Create ExtractBitmap config
+///|
+/// Create ExtractBitmap config
 pub fn bench_config_extract_bitmap() -> ImageProcessorConfig {
   ImageProcessorConfig::{
     primary: ImageStrategy::ExtractBitmap,
@@ -550,7 +668,8 @@ pub fn bench_config_extract_bitmap() -> ImageProcessorConfig {
   }
 }
 
-///| Create default config
+///|
+/// Create default config
 pub fn bench_config_default() -> ImageProcessorConfig {
   default_image_config()
 }

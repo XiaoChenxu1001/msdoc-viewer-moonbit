@@ -1,17 +1,20 @@
 ///| MS-DOC parser type definitions
+
 ///| Extracted from parser.mbt for better organization
 
-///| Form field data (text/checkbox/dropdown)
+///|
+/// Form field data (text/checkbox/dropdown)
 pub struct FormFieldData {
-  field_type : String  // "text", "checkbox", "dropdown"
+  field_type : String // "text", "checkbox", "dropdown"
   name : String
-  default_value : String  // text field default
-  checked : Bool          // checkbox state
-  selected_index : Int    // dropdown selected item
-  items : Array[String]   // dropdown items
+  default_value : String // text field default
+  checked : Bool // checkbox state
+  selected_index : Int // dropdown selected item
+  items : Array[String] // dropdown items
 }
 
-///| Render run (text span with formatting)
+///|
+/// Render run (text span with formatting)
 pub struct RenderRun {
   text : String
   bold : Bool
@@ -45,10 +48,11 @@ pub struct RenderRun {
   image_height : Int
   is_attachment : Bool
   attachment_name : String
-  form_field : Option[FormFieldData]
+  form_field : FormFieldData?
 }
 
-///| Paragraph info with formatting
+///|
+/// Paragraph info with formatting
 pub struct ParagraphInfo {
   cp_start : Int
   cp_end : Int
@@ -82,45 +86,50 @@ pub struct ParagraphInfo {
   shading : Int
 }
 
-///| Table cell (parser)
+///|
+/// Table cell (parser)
 pub struct DocTableCell {
   paragraphs : Array[ParagraphInfo]
-  meta : Option[TableCellDef]
+  meta : TableCellDef?
   col_index : Int
   colspan : Int
   rowspan : Int
   hidden : Bool
 }
 
-///| Table row
+///|
+/// Table row
 pub struct TableRow {
   cells : Array[DocTableCell]
   grid_width_twips : Int
   row_height : Int
 }
 
-///| Table block
+///|
+/// Table block
 pub struct TableBlock {
   rows : Array[TableRow]
   depth : Int
-  table_state : Option[TableState]
+  table_state : TableState?
 }
 
-///| Block - either a paragraph, a table, or trailing attachments
+///|
+/// Block - either a paragraph, a table, or trailing attachments
 pub enum Block {
   Paragraph(ParagraphInfo)
   Table(TableBlock)
   Attachments(Array[Asset])
 }
 
-///| Parse result
+///|
+/// Parse result
 pub struct MsDocParseResult {
   text : String
   paragraphs : Array[ParagraphInfo]
   blocks : Array[Block]
   warnings : Array[String]
   assets : Array[Asset]
-  meta : Option[ParseMeta]
+  meta : ParseMeta?
   fonts : Array[FontInfo]
   styles : Array[StyleInfo]
   textboxes : Array[TextBox]
@@ -129,7 +138,7 @@ pub struct MsDocParseResult {
   sections : Array[SectionProperties]
   footnotes : Array[Footnote]
   endnotes : Array[Footnote]
-  summary : Option[SummaryInfo]
+  summary : SummaryInfo?
   comments : Array[Comment]
   raw_data : FixedArray[Byte]
   image_config : ImageProcessorConfig
@@ -138,7 +147,9 @@ pub struct MsDocParseResult {
 }
 
 ///| Deferred parse result with image extraction context
-///| Contains both the parse result and the data needed for async image extraction
+
+///|
+/// Contains both the parse result and the data needed for async image extraction
 pub struct DeferredParseResult {
   result : MsDocParseResult
   data_bytes : FixedArray[Byte]
@@ -146,7 +157,8 @@ pub struct DeferredParseResult {
   image_cache : Map[Int, Asset]
 }
 
-///| Parse metadata (mirrors JS meta object)
+///|
+/// Parse metadata (mirrors JS meta object)
 pub struct ParseMeta {
   fib_w_ident : Int
   fib_n_fib : Int
@@ -161,13 +173,15 @@ pub struct ParseMeta {
   count_fonts : Int
 }
 
-///| Font info for parse result
+///|
+/// Font info for parse result
 pub struct FontInfo {
   name : String
   alt_name : String
 }
 
-///| Style info for parse result
+///|
+/// Style info for parse result
 pub struct StyleInfo {
   istd : Int
   name : String
@@ -176,7 +190,8 @@ pub struct StyleInfo {
   next_style : Int
 }
 
-///| Textbox extracted from textbox subdocument
+///|
+/// Textbox extracted from textbox subdocument
 pub struct TextBox {
   shape_id : Int
   text : String
@@ -184,57 +199,62 @@ pub struct TextBox {
   cp_end : Int
 }
 
-///| Header/Footer content
+///|
+/// Header/Footer content
 pub struct HeaderFooter {
   text : String
-  story_type : Int  // 0=even header, 1=odd header, 2=even footer, 3=odd footer, 4=first header, 5=first footer
+  story_type : Int // 0=even header, 1=odd header, 2=even footer, 3=odd footer, 4=first header, 5=first footer
   section_index : Int
 }
 
-///| Section properties for header/footer control and page layout
+///|
+/// Section properties for header/footer control and page layout
 pub struct SectionProperties {
   index : Int
   // Header/Footer control
-  has_title_page : Bool      // sprmSFTitlePage: first page gets its own header/footer
-  header_distance : Int       // sprmSDyaHdrTop: distance from page top to header (twips, default 720)
-  footer_distance : Int       // sprmSDyaHdrBottom: distance from page bottom to footer (twips, default 720)
-  break_type : Int            // sprmSBkc: section break type (0=continuous, 2=new page)
+  has_title_page : Bool // sprmSFTitlePage: first page gets its own header/footer
+  header_distance : Int // sprmSDyaHdrTop: distance from page top to header (twips, default 720)
+  footer_distance : Int // sprmSDyaHdrBottom: distance from page bottom to footer (twips, default 720)
+  break_type : Int // sprmSBkc: section break type (0=continuous, 2=new page)
   // Page layout
-  page_width : Int            // sprmSXaPage: page width in twips (default 12240 = 8.5 inches)
-  page_height : Int           // sprmSYaPage: page height in twips (default 15840 = 11 inches)
-  orientation : Int           // sprmSOrientPage: 0=portrait, 1=landscape
+  page_width : Int // sprmSXaPage: page width in twips (default 12240 = 8.5 inches)
+  page_height : Int // sprmSYaPage: page height in twips (default 15840 = 11 inches)
+  orientation : Int // sprmSOrientPage: 0=portrait, 1=landscape
   // Page margins
-  margin_top : Int            // sprmSDyaTop: top margin (twips, default 1440 = 1 inch)
-  margin_bottom : Int         // sprmSDyaBottom: bottom margin (twips, default 1440)
-  margin_left : Int           // sprmSDxaLeft: left margin (twips, default 1800 = 1.25 inches)
-  margin_right : Int          // sprmSDxaRight: right margin (twips, default 1800)
+  margin_top : Int // sprmSDyaTop: top margin (twips, default 1440 = 1 inch)
+  margin_bottom : Int // sprmSDyaBottom: bottom margin (twips, default 1440)
+  margin_left : Int // sprmSDxaLeft: left margin (twips, default 1800 = 1.25 inches)
+  margin_right : Int // sprmSDxaRight: right margin (twips, default 1800)
   // Columns
-  column_count : Int          // sprmNBpc: number of columns (default 1)
-  column_spacing : Int        // sprmSClm: space between columns (twips)
+  column_count : Int // sprmNBpc: number of columns (default 1)
+  column_spacing : Int // sprmSClm: space between columns (twips)
 }
 
-///| Comment (批注)
+///|
+/// Comment (批注)
 pub struct Comment {
-  anchor_cp : Int           // 主文档中锚点 CP 位置
-  text : String             // 批注文本内容
-  author : String           // 作者名称
-  comment_index : Int       // 批注序号 (1-based)
-  parent_index : Int        // 父批注索引 (-1 为顶级)
+  anchor_cp : Int // 主文档中锚点 CP 位置
+  text : String // 批注文本内容
+  author : String // 作者名称
+  comment_index : Int // 批注序号 (1-based)
+  parent_index : Int // 父批注索引 (-1 为顶级)
 }
 
-///| Footnote/Endnote content
+///|
+/// Footnote/Endnote content
 pub struct Footnote {
   text : String
-  ref_cp : Int      // CP position of the reference mark in main document
-  note_index : Int  // 1-based note number
+  ref_cp : Int // CP position of the reference mark in main document
+  note_index : Int // 1-based note number
   is_endnote : Bool
 }
 
-///| Render result
+///|
+/// Render result
 pub struct RenderResult {
   html : String
   css : String
   warnings : Array[String]
   assets : Array[Asset]
-  meta : Option[ParseMeta]
+  meta : ParseMeta?
 }
