@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "msdoc-viewer/core"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub const DIFSECT : Int = 0xFFFFFFFC
 
@@ -568,7 +572,7 @@ pub enum EmfTargetFormat {
   Svg
   Png
   Jpeg
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 type FFDataInfo
 
@@ -902,7 +906,7 @@ pub enum ImageStrategy {
   DownloadLink
   KeepOriginal
   Custom(String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 type InlineFieldCtx
 

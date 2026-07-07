@@ -406,7 +406,7 @@ fn table_props_from_decoded_impl(
     while offset + 2 <= raw_bytes.length() {
       let sprm = raw_bytes[offset].to_int() |
         (raw_bytes[offset + 1].to_int() << 8)
-      let op_type = sprm.lsr(13).land(0x7)
+      let op_type = (sprm >> 13) & 0x7
       if sprm == 0xd608 {
         let cb = if offset + 4 <= raw_bytes.length() {
           raw_bytes[offset + 2].to_int() | (raw_bytes[offset + 3].to_int() << 8)
@@ -571,8 +571,8 @@ pub fn apply_table_state_to_cells(
     let tc_offset = tc80_start + i * tc_record_size
     let tcgrf = reader.u16(tc_offset)
     let horz_merge = tcgrf.land(0x3)
-    let vert_merge = tcgrf.lsr(5).land(0x3)
-    let vert_align = tcgrf.lsr(7).land(0x3)
+    let vert_merge = (tcgrf >> 5) & 0x3
+    let vert_align = (tcgrf >> 7) & 0x3
     let w_width = reader.u16(tc_offset + 2)
 
     let mut borders : Array[Byte] = []
@@ -583,7 +583,7 @@ pub fn apply_table_state_to_cells(
     let shading : Array[Byte] = []
     let fit_text = false
     let no_wrap = false
-    let text_flow = tcgrf.lsr(2).land(0x7)
+    let text_flow = (tcgrf >> 2) & 0x7
     let hide_mark = tcgrf.land(0x4000) != 0
 
     cells.push(TableCellDef::{
@@ -611,7 +611,7 @@ pub fn apply_table_state_to_cells(
   let get_range = fn(op : DecodedProperty) -> (Int, Int) {
     match op.range {
       Some(r) => (r.first, r.lim)
-      None => (op.value.land(0xFF), op.value.lsr(8).land(0xFF))
+      None => (op.value.land(0xFF), (op.value >> 8) & 0xFF)
     }
   }
 
@@ -664,8 +664,8 @@ pub fn apply_table_state_to_cells(
         let width = match op.range {
           Some(_r) =>
             // value was packed as fts_width | (width << 8), extract width
-            op.value.lsr(8)
-          None => op.value.lsr(16)
+            op.value >> 8
+          None => op.value >> 16
         }
         range_apply_cells(cells, first, lim, fn(cell, _idx) {
           TableCellDef::{
@@ -730,11 +730,11 @@ pub fn apply_table_state_to_cells(
         let new_brc : Array[Byte] = match op.operand_bytes {
           Some(brc) => brc
           None => {
-            let brc = op.value.lsr(16)
+            let brc = op.value >> 16
             if brc == 0 {
               []
             } else {
-              Array::makei(4, fn(j) { brc.lsr(j * 8).land(0xFF).to_byte() })
+              Array::makei(4, fn(j) { ((brc >> (j * 8)) & 0xFF).to_byte() })
             }
           }
         }
@@ -787,7 +787,7 @@ pub fn apply_table_state_to_cells(
             vert_align: cell.vert_align,
             borders: cell.borders,
             shading: Array::makei(4, fn(j) {
-              shd.lsr(j * 8).land(0xFF).to_byte()
+              ((shd >> (j * 8)) & 0xFF).to_byte()
             }),
             fit_text: cell.fit_text,
             no_wrap: cell.no_wrap,

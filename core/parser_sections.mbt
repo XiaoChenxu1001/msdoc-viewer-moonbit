@@ -70,8 +70,8 @@ pub fn parse_sections(
       while prl_offset + 2 <= grpprl_end &&
             prl_offset + 2 <= word_bytes.length() {
         let sprm = sepx_reader.u16(prl_offset)
-        let sprm_group = sprm.lsr(13).land(0x7)
-        let sprm_opcode = sprm.lsr(4).land(0x1FF)
+        let sprm_group = (sprm >> 13) & 0x7
+        let sprm_opcode = (sprm >> 4) & 0x1FF
         let sprm_size = sprm.land(0xF)
 
         // Section SPRMs (group 3)

@@ -8,7 +8,7 @@ pub enum EmfTargetFormat {
   Svg
   Png
   Jpeg
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// EMF converter configuration

@@ -414,7 +414,7 @@ pub fn bench_get_textbox_info(result : MsDocParseResult) -> String {
   for i in 0..<result.textboxes.length() {
     let tb = result.textboxes[i]
     let text_preview = if String::length(tb.text) > 50 {
-      tb.text[0:50].to_string() + "..."
+      tb.text[0:50].to_owned() + "..."
     } else {
       tb.text
     }
@@ -519,7 +519,7 @@ pub fn bench_diagnose_txbx(input : FixedArray[Byte]) -> String raise {
       for i in 0..<(txbx_count + 1) {
         txbx_cps.push(txbx_reader.u32(i * 4))
       }
-      sb <+ "CPs: \{txbx_cps}\n"
+      sb <+ "CPs: \{debug_inspect(txbx_cps)}\n"
 
       let ftxbxs_offset = (txbx_count + 1) * 4
       for i in 0..<txbx_count {

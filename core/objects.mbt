@@ -1396,7 +1396,7 @@ pub fn parse_ffdata(bytes : FixedArray[Byte]) -> FFDataInfo? {
   // bits (2 bytes) — FFDataBits
   let bits_val = reader.u16(4)
   let i_type = bits_val.land(0x3) // bits 0-1: 0=text, 1=checkbox, 2=dropdown
-  let i_res = bits_val.lsr(2).land(0x1F) // bits 2-6: current value
+  let i_res = (bits_val >> 2) & 0x1F // bits 2-6: current value
 
   // cch (2 bytes) — max length (for text fields)
   // hps (2 bytes) — checkbox size (for checkbox fields)

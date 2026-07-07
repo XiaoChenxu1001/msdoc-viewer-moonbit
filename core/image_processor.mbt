@@ -17,7 +17,7 @@ pub enum ImageStrategy {
   KeepOriginal
   /// Custom strategy with handler function
   Custom(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Image processing result

@@ -42,25 +42,25 @@ test "escape_html_text mixed" {
 ///|
 test "get_default_css non-empty" {
   let css = get_default_css()
-  inspect(css.length() > 100, content="true")
+  assert_true(css.length() > 100)
 }
 
 ///|
 test "get_default_css contains root" {
   let css = get_default_css()
-  inspect(css.contains(".msdoc-root"), content="true")
+  assert_true(css.contains(".msdoc-root"))
 }
 
 ///|
 test "get_default_css contains paragraph" {
   let css = get_default_css()
-  inspect(css.contains(".msdoc-paragraph"), content="true")
+  assert_true(css.contains(".msdoc-paragraph"))
 }
 
 ///|
 test "get_default_css contains table" {
   let css = get_default_css()
-  inspect(css.contains(".msdoc-table"), content="true")
+  assert_true(css.contains(".msdoc-table"))
 }
 
 // ==================== 图片格式检测 ====================
@@ -109,8 +109,8 @@ test "extract_pic_dimensions empty" {
 ///|
 test "calculate_display_dimensions" {
   let (w, h) = calculate_display_dimensions(1000, 2000, 100, 100)
-  inspect(w > 0, content="true")
-  inspect(h > 0, content="true")
+  assert_true(w > 0)
+  assert_true(h > 0)
 }
 
 // ==================== SPRM ====================
@@ -193,7 +193,7 @@ test "validate_emf_converter_config" {
   let config = default_emf_converter_config()
   let errors = validate_emf_converter_config(config)
   // Config may have validation errors, just verify it runs
-  inspect(true, content="true")
+  assert_true(true)
 }
 
 ///|
@@ -216,7 +216,7 @@ test "needs_server_conversion PNG" {
 ///|
 test "default_image_config" {
   let config = default_image_config()
-  inspect(config.max_size > 0, content="true")
+  assert_true(config.max_size > 0)
 }
 
 ///|
@@ -235,7 +235,7 @@ test "needs_processing PNG" {
 test "create_emf_cache" {
   let cache = create_emf_cache(60000)
   // Cache created successfully
-  inspect(true, content="true")
+  assert_true(true)
 }
 
 ///|
@@ -247,7 +247,7 @@ test "compute_content_hash" {
   let h2 = compute_content_hash(d2)
   let h3 = compute_content_hash(d3)
   assert_eq(h1, h2)
-  inspect(h1 != h3, content="true")
+  assert_true(h1 != h3)
 }
 
 // ==================== Placeholder Asset ====================
@@ -256,7 +256,7 @@ test "compute_content_hash" {
 test "create_placeholder_asset" {
   let asset = create_placeholder_asset(100)
   assert_eq(asset.asset_type, "image")
-  inspect(asset.data_url.contains("svg"), content="true")
+  assert_true(asset.data_url.contains("svg"))
 }
 
 // ==================== Summary Info ====================
@@ -266,8 +266,8 @@ test "parse_summary_info empty" {
   let empty : FixedArray[Byte] = []
   let result = parse_summary_info(empty)
   match result {
-    Some(_) => inspect(false, content="true")
-    None => inspect(true, content="true")
+    Some(_) => assert_true(false)
+    None => assert_true(true)
   }
 }
 
@@ -395,7 +395,7 @@ test "block with paragraph" {
   let block = Block::Paragraph(para)
   match block {
     Block::Paragraph(p) => assert_eq(p.text, "abc")
-    _ => inspect(false, content="true")
+    _ => assert_true(false)
   }
 }
 
@@ -406,7 +406,7 @@ test "build_blocks empty" {
   let paragraphs : Array[ParagraphInfo] = []
   let styles = StyleCollection::{
     styles: [],
-    style_map: Map::new(),
+    style_map: Map([], capacity=64),
     count: 0,
     header: None,
   }
