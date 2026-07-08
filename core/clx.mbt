@@ -15,10 +15,6 @@ pub struct Piece {
 
 ///|
 /// Piece table
-///|
-/// CLX structure
-pub struct CLX {
-}
 
 ///|
 fn cp1252_to_unicode(code : Int) -> Int {

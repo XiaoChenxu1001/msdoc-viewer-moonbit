@@ -116,7 +116,6 @@ pub fn read_chpx_runs(
   word_bytes : FixedArray[Byte],
   table_bytes : FixedArray[Byte],
   fib : FIB,
-  _clx : CLX,
 ) -> Array[ChpxRun] {
   let fc = fib.fib_rg_fc_lcb.fc_plcf_bte_chpx
   let lcb = fib.fib_rg_fc_lcb.lcb_plcf_bte_chpx
@@ -204,7 +203,6 @@ pub fn read_papx_runs(
   word_bytes : FixedArray[Byte],
   table_bytes : FixedArray[Byte],
   fib : FIB,
-  _clx : CLX,
 ) -> Array[PapxRun] {
   let fc = fib.fib_rg_fc_lcb.fc_plcf_bte_papx
   let lcb = fib.fib_rg_fc_lcb.lcb_plcf_bte_papx
