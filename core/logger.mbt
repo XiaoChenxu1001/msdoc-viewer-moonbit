@@ -1,24 +1,14 @@
 ///|
 /// Log level enum
 pub enum LogLevel {
-  Trace
-  Debug
-  Info
   Warn
-  Error
-  Silent
 } derive(Compare, Eq)
 
 ///|
 /// Convert log level to int for comparison
 fn log_level_to_int(level : LogLevel) -> Int {
   match level {
-    Trace => 0
-    Debug => 1
-    Info => 2
     Warn => 3
-    Error => 4
-    Silent => 5
   }
 }
 

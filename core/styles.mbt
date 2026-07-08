@@ -2,7 +2,7 @@
 
 ///|
 /// Style STDF base (10-byte header per style)
-struct StdfBase {
+priv struct StdfBase {
   stk : Int
   istd_base : Int
   cupx : Int
@@ -12,12 +12,12 @@ struct StdfBase {
 ///|
 /// STSHF header
 struct StyleHeader {
-  cb_stshi : Int
-  cstd : Int
-  cb_std_base_in_file : Int
-  ftc_asci : Int
-  ftc_fe : Int
-  ftc_other : Int
+  _cb_stshi : Int
+  _cstd : Int
+  _cb_std_base_in_file : Int
+  _ftc_asci : Int
+  _ftc_fe : Int
+  _ftc_other : Int
 }
 
 ///|
@@ -116,7 +116,7 @@ fn parse_xstz(bytes : ArrayView[Byte], offset : Int) -> (String, Int) {
 /// Parse STDF base (10 bytes)
 fn parse_stdf_base(bytes : ArrayView[Byte], offset : Int) -> StdfBase {
   let reader = BinaryReader::from_view(bytes)
-  let w1 = reader.u16(offset)
+  let _w1 = reader.u16(offset)
   let w2 = reader.u16(offset + 2)
   let w3 = reader.u16(offset + 4)
   ignore(reader.u16(offset + 6))
@@ -144,7 +144,7 @@ fn parse_lp_upx_papx(
   let safe_end = if end < bytes.length() { end } else { bytes.length() }
   let style_id = if safe_end >= start + 2 { reader.u16(start) } else { 0 }
   let properties = if safe_end > start + 2 {
-    let grpprl_len = safe_end - start - 2
+    let _grpprl_len = safe_end - start - 2
     let grpprl_view = bytes.view(start=start + 2, end=safe_end)
     decode_grpprl(grpprl_view)
   } else {
@@ -295,12 +295,12 @@ pub fn parse_styles(stshf_bytes : ArrayView[Byte]) -> StyleCollection {
   let ftc_fe = reader.u16(stshi_offset + 12)
   let ftc_other = reader.u16(stshi_offset + 14)
   let header = StyleHeader::{
-    cb_stshi,
-    cstd,
-    cb_std_base_in_file,
-    ftc_asci,
-    ftc_fe,
-    ftc_other,
+    _cb_stshi: cb_stshi,
+    _cstd: cstd,
+    _cb_std_base_in_file: cb_std_base_in_file,
+    _ftc_asci: ftc_asci,
+    _ftc_fe: ftc_fe,
+    _ftc_other: ftc_other,
   }
   let mut offset = 2 + cb_stshi
   for i in 0..<cstd {

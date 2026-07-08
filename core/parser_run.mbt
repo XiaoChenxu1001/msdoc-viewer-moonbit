@@ -175,7 +175,7 @@ fn find_papx_state_and_props(
 }
 
 ///|
-struct PapxResult {
+priv struct PapxResult {
   para_state : ParaState
   raw_props : Array[Byte]
   resolved_char_props : Array[DecodedProperty]
@@ -219,9 +219,8 @@ fn shallow_equal_char_state(a : CharState, b : CharState) -> Bool {
 
 ///|
 /// Character segment with formatting state (mirrors JS segment object)
-struct CharSegment {
+priv struct CharSegment {
   cp_start : Int
-  cp_end : Int
   text : String
   state : CharState
 }
@@ -235,7 +234,7 @@ fn build_char_segments(
   para_cp_end : Int,
   base_char_props : Array[DecodedProperty],
   fonts : FontsCollection,
-  styles : StyleCollection,
+  _styles : StyleCollection,
   cursor : Int,
   style_cache : Map[Int, ResolvedStyle],
 ) -> (Array[CharSegment], Int) {
@@ -380,14 +379,12 @@ fn build_char_segments(
             shallow_equal_char_state(segments[last_idx].state, final_state) {
             segments[last_idx] = CharSegment::{
               cp_start: segments[last_idx].cp_start,
-              cp_end: seg_cp_end,
               text: segments[last_idx].text + seg_text,
               state: final_state,
             }
           } else {
             segments.push(CharSegment::{
               cp_start: seg_cp_start,
-              cp_end: seg_cp_end,
               text: seg_text,
               state: final_state,
             })
@@ -440,7 +437,6 @@ fn build_char_segments(
     }
     segments.push(CharSegment::{
       cp_start: para_cp_start,
-      cp_end: para_cp_end,
       text: para_text,
       state: final_state,
     })
@@ -734,7 +730,7 @@ fn resolve_asset_for_picture(
 
 ///|
 /// Field context for inline field processing (mirrors JS buildInlineNodes)
-struct InlineFieldCtx {
+priv struct InlineFieldCtx {
   instruction : StringBuilder
   parsed_href : String
   reading_instruction : Bool
@@ -1047,10 +1043,10 @@ fn process_inline_fields(
         let is_hl = instr_result.instr_type == "hyperlink" &&
           instr_result.href.length() > 0
         // Detect form field types
-        let is_form_field = instr_result.instr_type == "formtext" ||
+        let _is_form_field = instr_result.instr_type == "formtext" ||
           instr_result.instr_type == "formcheckbox" ||
           instr_result.instr_type == "formdropdown"
-        let form_field_type = if instr_result.instr_type == "formtext" {
+        let _form_field_type = if instr_result.instr_type == "formtext" {
           "text"
         } else if instr_result.instr_type == "formcheckbox" {
           "checkbox"
@@ -1289,7 +1285,7 @@ fn process_inline_fields(
         if field_stack.length() > 0 {
           let top_idx3 = field_stack.length() - 1
           let top3 = field_stack[top_idx3]
-          let new_len = top3.runs.length() + 1
+          let _new_len = top3.runs.length() + 1
           field_stack[top_idx3].runs.push(br_run)
         } else {
           output.push(br_run)
@@ -1668,22 +1664,4 @@ fn merge_adjacent_runs(runs : Array[RenderRun]) -> Array[RenderRun] {
     ri += 1
   }
   merged
-}
-
-///|
-/// Find the href for a CP range from hyperlink field ranges (innermost/last match)
-fn find_href_for_range(
-  cp_start : Int,
-  cp_end : Int,
-  ranges : Array[FieldRange],
-) -> String {
-  let mut i = ranges.length()
-  while i > 0 {
-    i -= 1
-    let r = ranges[i]
-    if cp_end > r.start && cp_start < r.end {
-      return r.href
-    }
-  }
-  ""
 }

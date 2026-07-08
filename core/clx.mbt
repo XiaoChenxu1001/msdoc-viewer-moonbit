@@ -15,16 +15,9 @@ pub struct Piece {
 
 ///|
 /// Piece table
-pub struct PieceTable {
-  cps : Array[Int]
-  pieces : Array[Piece]
-}
-
 ///|
 /// CLX structure
 pub struct CLX {
-  pcdt_lcb : Int
-  piece_table : PieceTable
 }
 
 ///|
@@ -113,53 +106,6 @@ fn decode_unicode_view(bytes : ArrayView[Byte]) -> String {
     i += 2
   }
   sb.to_string()
-}
-
-///|
-/// Parse PlcPcd (piece table)
-fn parse_plc_pcd(bytes : FixedArray[Byte]) -> PieceTable raise {
-  if bytes.length() == 0 {
-    raise CfbError("Empty PlcPcd")
-  }
-  let reader = BinaryReader::make(bytes)
-  let pcd_count = (bytes.length() - 4) / 12
-
-  // Read CP array
-  let cps = Array::new()
-  for i in 0..<(pcd_count + 1) {
-    cps.push(reader.u32(i * 4))
-  }
-
-  // Read pieces
-  let pieces = Array::new()
-  let mut offset = (pcd_count + 1) * 4
-  for i in 0..<pcd_count {
-    let fc_raw = reader.u32(offset + 2)
-    let compressed = (fc_raw & 0x40000000) != 0
-    let fc = fc_raw & 0x3FFFFFFF
-    let cp_start = if i < cps.length() { cps[i] } else { 0 }
-    let cp_end = if i + 1 < cps.length() { cps[i + 1] } else { cp_start }
-    let actual_byte_start = if compressed { fc / 2 } else { fc }
-    let byte_length = if compressed {
-      cp_end - cp_start
-    } else {
-      (cp_end - cp_start) * 2
-    }
-
-    pieces.push(Piece::{
-      index: i,
-      compressed,
-      fc,
-      cp_start,
-      cp_end,
-      actual_byte_start,
-      byte_length,
-      actual_byte_end: actual_byte_start + byte_length,
-    })
-    offset += 8
-  }
-
-  PieceTable::{ cps, pieces }
 }
 
 ///|

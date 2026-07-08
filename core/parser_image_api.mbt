@@ -71,7 +71,7 @@ pub fn extract_deferred_image(
 /// Returns a new array with processed images
 pub fn extract_all_deferred_images(
   deferred : DeferredParseResult,
-) -> Array[Asset] raise {
+) -> Array[Asset] {
   let result : Array[Asset] = Array::new()
   let mut i = 0
   while i < deferred.result.assets.length() {

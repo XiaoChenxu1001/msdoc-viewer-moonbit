@@ -15,8 +15,6 @@ pub enum ImageStrategy {
   DownloadLink
   /// Keep original format as-is (for native/platform rendering)
   KeepOriginal
-  /// Custom strategy with handler function
-  Custom(String)
 } derive(Debug, Eq)
 
 ///|
@@ -156,14 +154,6 @@ fn try_strategy(
     ImageStrategy::CanvasRender => try_canvas_render(bytes, mime)
     ImageStrategy::DownloadLink => create_download_result(bytes, mime)
     ImageStrategy::KeepOriginal => try_keep_original(bytes, mime)
-    ImageStrategy::Custom(name) =>
-      ImageProcessResult::{
-        bytes: FixedArray::make(0, 0x0),
-        mime: "unknown",
-        success: false,
-        error: "Custom strategy '\{name}' not implemented",
-        fallback_url: "",
-      }
   }
 }
 
@@ -172,11 +162,11 @@ fn try_strategy(
 ///|
 /// This function is called from JavaScript layer via emf_js_bridge.js
 fn try_emf_to_svg(
-  bytes : FixedArray[Byte],
-  mime : String,
+  _bytes : FixedArray[Byte],
+  _mime : String,
 ) -> ImageProcessResult {
   // Check if this is actually EMF/WMF
-  if mime != "image/emf" && mime != "image/wmf" {
+  if _mime != "image/emf" && _mime != "image/wmf" {
     return ImageProcessResult::{
       bytes: FixedArray::make(0, 0x0),
       mime: "unknown",
@@ -315,8 +305,8 @@ fn try_extract_bitmap(
 ///|
 /// This is a placeholder - actual implementation requires Canvas API
 fn try_canvas_render(
-  bytes : FixedArray[Byte],
-  mime : String,
+  _bytes : FixedArray[Byte],
+  _mime : String,
 ) -> ImageProcessResult {
   // TODO: Implement Canvas-based rendering
   // This would require:

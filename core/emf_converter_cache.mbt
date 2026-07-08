@@ -7,7 +7,6 @@
 struct CacheEntry {
   data : FixedArray[Byte]
   mime : String
-  timestamp : Int
 }
 
 ///|
@@ -62,13 +61,13 @@ pub fn cache_set(
 ) -> Unit {
   cache.entries.set(
     key,
-    CacheEntry::{ data, mime, timestamp: 0 }, // Would use actual timestamp in production
+    CacheEntry::{ data, mime },
   )
 }
 
 ///|
 /// Clear expired entries from cache
-pub fn cache_cleanup(cache : EmfConverterCache) -> Unit {
+pub fn cache_cleanup(_cache : EmfConverterCache) -> Unit {
   // In production, iterate and remove expired entries
   // For now, this is a no-op
 }

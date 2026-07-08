@@ -124,24 +124,6 @@ pub fn check_emf_server_health(
   }
 }
 
-///|
-/// Build conversion request URL
-fn build_conversion_url(config : EmfConverterConfig) -> String {
-  "\{config.server_url}/api/convert/emf"
-}
-
-///|
-/// Build health check URL
-fn build_health_url(config : EmfConverterConfig) -> String {
-  "\{config.server_url}/api/convert/health"
-}
-
-///|
-/// Get target format header value
-fn get_target_format_header(config : EmfConverterConfig) -> String {
-  target_format_to_string(config.target_format)
-}
-
 ///| Process EMF with server conversion and fallback
 
 ///|

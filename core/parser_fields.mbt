@@ -5,33 +5,14 @@
 ///| Process field characters to extract hyperlink hrefs
 
 ///|
-/// Field context for stack-based field parsing (mirrors JS buildInlineNodes)
-struct FieldCtx {
-  instruction : StringBuilder
-  is_hyperlink : Bool
-  href : String
-  reading_instruction : Bool
-  display_start : Int
-  last_emitted : Int
-}
-
-///|
 /// Result of decoding a field instruction
-struct FieldInstructionResult {
+priv struct FieldInstructionResult {
   instr_type : String
   href : String
-  target : String
-  raw : String
 }
 
 ///|
 /// A hyperlink field range in CP-space
-struct FieldRange {
-  start : Int
-  end : Int
-  href : String
-}
-
 ///|
 /// Strip field markers and trim trailing \r/\u{0007} in a single pass
 fn strip_field_markers_and_trim(text : String) -> String {
@@ -196,11 +177,9 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "unknown",
       href: "",
-      target: "",
-      raw: "",
     }
   }
-  let raw = inst_str[start:len].to_owned()
+  let _raw = inst_str[start:len].to_owned()
 
   // HYPERLINK (9 chars)
   if remaining >= 9 && ci_eq_prefix(inst_str, start, "HYPERLINK") {
@@ -213,15 +192,11 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
       return FieldInstructionResult::{
         instr_type: "hyperlink",
         href,
-        target: "",
-        raw,
       }
     }
     return FieldInstructionResult::{
       instr_type: "unknown",
       href: "",
-      target: "",
-      raw,
     }
   }
 
@@ -231,12 +206,10 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     while bs < len && inst_str[bs] <= 0x20 {
       bs += 1
     }
-    let target = extract_quoted_or_first_token_from(inst_str, bs)
+    let _target = extract_quoted_or_first_token_from(inst_str, bs)
     return FieldInstructionResult::{
       instr_type: "includePicture",
       href: "",
-      target,
-      raw,
     }
   }
 
@@ -245,8 +218,6 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "embed",
       href: "",
-      target: "",
-      raw,
     }
   }
 
@@ -255,8 +226,6 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "link",
       href: "",
-      target: "",
-      raw,
     }
   }
 
@@ -265,8 +234,6 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "formtext",
       href: "",
-      target: "",
-      raw,
     }
   }
 
@@ -275,8 +242,6 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "formcheckbox",
       href: "",
-      target: "",
-      raw,
     }
   }
 
@@ -285,10 +250,8 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     return FieldInstructionResult::{
       instr_type: "formdropdown",
       href: "",
-      target: "",
-      raw,
     }
   }
 
-  FieldInstructionResult::{ instr_type: "unknown", href: "", target: "", raw }
+  FieldInstructionResult::{ instr_type: "unknown", href: "" }
 }

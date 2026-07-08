@@ -758,7 +758,7 @@ fn parse_fib_rg_fc_lcb(bytes : ArrayView[Byte], count : Int) -> FIBRgFcLcb {
 
 ///|
 /// Parse FIB from WordDocument stream
-pub fn parse_fib(word_bytes : FixedArray[Byte]) -> FIB raise {
+pub fn parse_fib(word_bytes : FixedArray[Byte]) -> FIB {
   let reader = BinaryReader::make(word_bytes)
   let base = parse_fib_base(reader)
 

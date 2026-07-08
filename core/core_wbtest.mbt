@@ -103,7 +103,7 @@ test "detect_mime empty" {
 test "extract_pic_dimensions empty" {
   let empty : FixedArray[Byte] = []
   let result = extract_pic_dimensions(empty, 0)
-  assert_eq(result, None)
+  assert_true(result is None)
 }
 
 ///|
@@ -191,7 +191,7 @@ test "parse_brc80 zero" {
 ///|
 test "validate_emf_converter_config" {
   let config = default_emf_converter_config()
-  let errors = validate_emf_converter_config(config)
+  let _errors = validate_emf_converter_config(config)
   // Config may have validation errors, just verify it runs
   assert_true(true)
 }
@@ -233,7 +233,7 @@ test "needs_processing PNG" {
 
 ///|
 test "create_emf_cache" {
-  let cache = create_emf_cache(60000)
+  let _cache = create_emf_cache(60000)
   // Cache created successfully
   assert_true(true)
 }

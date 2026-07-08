@@ -106,18 +106,6 @@ pub fn parse_itc_first_lim(bytes : FixedArray[Byte], offset : Int) -> ItcRange {
 }
 
 ///|
-/// Parse ItcFirstLim from ArrayView (2 bytes: first, lim)
-fn parse_itc_first_lim_bytes(bytes : ArrayView[Byte], offset : Int) -> ItcRange {
-  let first = if offset < bytes.length() { bytes[offset].to_int() } else { 0 }
-  let lim = if offset + 1 < bytes.length() {
-    bytes[offset + 1].to_int()
-  } else {
-    0
-  }
-  ItcRange::{ first, lim }
-}
-
-///|
 /// Parse Brc80 border record (4 bytes)
 pub fn parse_brc80(bytes : FixedArray[Byte], offset : Int) -> Brc80Data {
   if offset + 4 > bytes.length() {
@@ -658,7 +646,7 @@ pub fn decode_sprm(sprm : Int, operand : ArrayView[Byte]) -> DecodedProperty {
       }
       // tableWidth (0xf614), widthBefore (0xf617), widthAfter (0xf618): ftsWidth, width
       0xf614 | 0xf617 | 0xf618 => {
-        let fts = if operand.length() > 0 { operand[0].to_int() } else { 0 }
+        let _fts = if operand.length() > 0 { operand[0].to_int() } else { 0 }
         let width = if operand.length() > 2 { u16v(operand, 1) } else { 0 }
         DecodedProperty::{
           name,
@@ -733,7 +721,7 @@ pub fn decode_sprm(sprm : Int, operand : ArrayView[Byte]) -> DecodedProperty {
       }
       // Other table SPRMs: use default flat parsing
       _ => {
-        let value = if operand.length() >= 4 {
+  let _value = if operand.length() >= 4 {
           operand[0].to_int() |
           (operand[1].to_int() << 8) |
           (operand[2].to_int() << 16) |

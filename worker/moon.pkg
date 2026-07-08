@@ -1,5 +1,5 @@
 import {
-  "XiaoChenxu1001/msdoc-viewer/core",
+  "XiaoChenxu/msdoc-viewer/core",
 }
 
 supported_targets = "js"

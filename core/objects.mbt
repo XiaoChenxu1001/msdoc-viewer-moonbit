@@ -17,15 +17,12 @@ pub struct Asset {
 /// Attachment result from OLE10 parsing
 struct OLE10Info {
   label : String
-  original_path : String
-  temp_path : String
-  data_size : Int
   bytes : FixedArray[Byte]
 }
 
 ///|
 /// Object storage info
-struct ObjectStorageInfo {
+priv struct ObjectStorageInfo {
   attachment : Asset?
   object_data : FixedArray[Byte]?
 }
@@ -495,19 +492,6 @@ fn find_bmp_end(bytes : FixedArray[Byte], start : Int) -> Int {
 }
 
 ///|
-/// Find EMF end from record size field
-fn find_emf_end(bytes : FixedArray[Byte], start : Int) -> Int {
-  if start + 48 <= bytes.length() {
-    let reader = BinaryReader::make(bytes)
-    let size = reader.u32(start + 40)
-    if size > 0 && start + size <= bytes.length() {
-      return start + size
-    }
-  }
-  bytes.length()
-}
-
-///|
 /// Detect image segment in bytes, scanning for magic bytes
 struct ImageSegment {
   mime : String
@@ -710,7 +694,7 @@ fn extract_picture_asset_impl(
   let picture_chunk = FixedArray::makei(total, fn(i) {
     data_bytes[picture_offset + i]
   })
-  let body_start = if cb_header > 0 && cb_header < picture_chunk.length() {
+  let _body_start = if cb_header > 0 && cb_header < picture_chunk.length() {
     cb_header
   } else if 68 < picture_chunk.length() {
     68
@@ -1266,9 +1250,9 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> OLE10Info? {
     let mut offset = start
     let (label, next1) = read_c_string(bytes, offset)
     offset = next1
-    let (original_path, next2) = read_c_string(bytes, offset)
+    let (_original_path, next2) = read_c_string(bytes, offset)
     offset = next2
-    let (temp_path, next3) = read_c_string(bytes, offset)
+    let (_temp_path, next3) = read_c_string(bytes, offset)
     offset = next3
     if offset + 4 > bytes.length() {
       continue
@@ -1280,9 +1264,6 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> OLE10Info? {
       let data_bytes = FixedArray::makei(data_size, fn(i) { bytes[offset + i] })
       return Some(OLE10Info::{
         label,
-        original_path,
-        temp_path,
-        data_size,
         bytes: data_bytes,
       })
     }
@@ -1292,144 +1273,8 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> OLE10Info? {
 
 ///|
 /// Parsed HFD (Hyperlink Field Data) result
-struct HFDInfo {
-  is_new_window : Bool
-  has_location : Bool
-  has_tooltip : Bool
-  url : String
-}
-
-///| Parse HFD (Hyperlink Field Data) structure from binData
-
-///| Per MS-DOC §2.9.115: bits(1) + clsid(16) + hyperlink(variable)
-
-///|
-/// Simple implementation: scans for printable URL string
-pub fn parse_hfd(bytes : FixedArray[Byte]) -> HFDInfo? {
-  if bytes.length() < 17 {
-    return None
-  }
-  // bits byte
-  let bits = bytes[0].to_int()
-  let is_new_window = bits.land(0x01) != 0
-  let has_location = bits.land(0x08) != 0
-  let has_tooltip = bits.land(0x10) != 0
-
-  // Skip clsid (16 bytes), start scanning from offset 17
-  // Hyperlink Object contains URL as a string — scan for printable sequence
-  let mut url_start = -1
-  let mut url_end = -1
-  for i in 17..<bytes.length() {
-    let b = bytes[i].to_int()
-    // URL typically starts with http/https/ftp or file://
-    if url_start < 0 {
-      // Look for start of printable ASCII sequence (>= 0x20, < 0x7F)
-      if b >= 0x20 && b < 0x7F {
-        url_start = i
-      }
-      // End of URL: non-printable or control char
-    } else if b < 0x20 || b >= 0x7F {
-      url_end = i
-      break
-    }
-  }
-  if url_start >= 0 && url_end > url_start {
-    let reader = BinaryReader::make(bytes)
-    let url = reader.latin1(url_start, url_end - url_start)
-    // Validate it looks like a URL or file path
-    if url.length() > 3 {
-      return Some(HFDInfo::{ is_new_window, has_location, has_tooltip, url })
-    }
-  }
-  None
-}
-
 ///|
 /// Parsed FFData (Form Field Data) result
-struct FFDataInfo {
-  field_type : String // "text", "checkbox", "dropdown"
-  name : String
-  default_text : String
-  checked : Bool
-  selected_index : Int
-}
-
-///| Read an Xstz (length-prefixed string with null terminator) from bytes
-
-///|
-/// Xstz = 2-byte cch + cch bytes of string data + null terminator
-fn read_xstz(bytes : FixedArray[Byte], offset : Int) -> (String, Int) {
-  if offset + 2 > bytes.length() {
-    return ("", offset)
-  }
-  let cch = bytes[offset].to_int() | (bytes[offset + 1].to_int() << 8)
-  let str_start = offset + 2
-  let str_end = str_start + cch
-  if str_end > bytes.length() {
-    return ("", offset)
-  }
-  let reader = BinaryReader::make(bytes)
-  let value = reader.latin1(str_start, cch)
-  // Skip null terminator if present
-  let next = if str_end < bytes.length() && bytes[str_end] == 0 {
-    str_end + 1
-  } else {
-    str_end
-  }
-  (value, next)
-}
-
-///| Parse FFData (Form Field Data) structure from binData
-
-///|
-/// Per MS-DOC §2.9.78: version(4) + bits(2) + cch(2) + hps(2) + xstzName + xstzTextDef + ...
-pub fn parse_ffdata(bytes : FixedArray[Byte]) -> FFDataInfo? {
-  if bytes.length() < 10 {
-    return None
-  }
-  let reader = BinaryReader::make(bytes)
-  // version (4 bytes) — MUST be 0xFFFFFFFF
-  let version = reader.u32(0)
-  if version != 0xFFFFFFFF {
-    return None
-  }
-  // bits (2 bytes) — FFDataBits
-  let bits_val = reader.u16(4)
-  let i_type = bits_val.land(0x3) // bits 0-1: 0=text, 1=checkbox, 2=dropdown
-  let i_res = (bits_val >> 2) & 0x1F // bits 2-6: current value
-
-  // cch (2 bytes) — max length (for text fields)
-  // hps (2 bytes) — checkbox size (for checkbox fields)
-  // Skip to xstzName at offset 10
-  let (name, next1) = read_xstz(bytes, 10)
-
-  let mut default_text = ""
-  let mut checked = false
-  let mut selected_index = 0
-
-  if i_type == 0 {
-    // Text field — xstzTextDef follows name
-    let (text_def, _) = read_xstz(bytes, next1)
-    default_text = text_def
-  } else if i_type == 1 {
-    // Checkbox — wDef (2 bytes) follows name
-    checked = i_res == 1
-  } else if i_type == 2 {
-    // Dropdown — wDef (2 bytes) follows name
-    selected_index = i_res
-  }
-
-  let field_type = if i_type == 0 {
-    "text"
-  } else if i_type == 1 {
-    "checkbox"
-  } else {
-    "dropdown"
-  }
-
-  Some(FFDataInfo::{ field_type, name, default_text, checked, selected_index })
-}
-
 ///|
 /// Check if a stream name matches a pattern (handles control-char prefixes)
 fn stream_name_matches(entry : CFBEntry, pattern : String) -> Bool {
