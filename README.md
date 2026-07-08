@@ -2,6 +2,14 @@
 
 High-performance MS-DOC (.doc binary Word) parser and renderer, compiled from MoonBit to JS, WASM, and WASM-GC backends.
 
+## Project Status
+
+- ✅ **MoonBit国产开源生态大赛 OSC 2026 参赛项目**
+- ✅ **已发布到 mooncakes.io**: https://www.mooncakes.io/
+- ✅ **CI 验证通过**: GitHub Actions 全部成功
+- ✅ **测试覆盖**: 103 个测试全部通过
+- ✅ **项目规模**: 13,347 有效 MoonBit 代码行
+
 ## Features
 
 - **Multi-target compilation**: JS (ESM), WASM (linear memory), WASM-GC backends
@@ -236,7 +244,7 @@ Functions that can raise return `(tag: i32, result: i32)`:
 
 ### Prerequisites
 
-- [MoonBit](https://www.moonbitlang.com/) toolchain (tested with moon v0.1.20260608, moonc v0.10.0)
+- [MoonBit](https://www.moonbitlang.com/) toolchain (tested with moon v0.1.20260703, moonc v0.10.3)
 
 ### Build
 

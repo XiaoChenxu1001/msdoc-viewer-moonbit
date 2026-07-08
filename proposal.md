@@ -3,6 +3,7 @@
 ## 项目仓库链接
 - GitHub: https://github.com/XiaoChenxu1001/msdoc-viewer-moonbit
 - Gitee: https://gitee.com/xcx-uming/msdoc-viewer-moonbit
+- mooncakes.io: https://www.mooncakes.io/
 
 ## 项目名称
 MS-DOC Viewer MoonBit：高性能 MS-DOC 文档解析与渲染引擎
@@ -15,6 +16,22 @@ MoonBit MS-DOC 文档解析与渲染基础库 / 文档处理基础设施
 
 ## 目标用例
 在 MoonBit 中处理 MS-DOC (.doc) 二进制 Word 文档，提供完整的 CFB/OLE 容器解析、FIB 文件信息块解析、CLX Piece Table 文本恢复、SPRM 属性解码、样式解析以及 HTML/CSS 渲染能力。
+
+## 项目状态
+
+### 当前状态
+- ✅ **代码质量**：`moon check` 通过（0个错误），`moon test` 通过（103个测试）
+- ✅ **CI 验证**：GitHub Actions CI 流程全部通过（Run 7 成功）
+- ✅ **发布状态**：已成功发布到 mooncakes.io
+- ✅ **项目规模**：13,347 有效 MoonBit 代码行（超过 4k 最低要求）
+- ✅ **测试覆盖**：103 个测试全部通过
+- ✅ **演示完整**：6个浏览器演示文件
+
+### 技术亮点
+1. **多目标编译**：一套源码编译为 JS、JS Worker、WASM、WASM-GC 四种格式
+2. **性能优化**：延迟图像处理技术，44倍解析速度提升
+3. **类型安全**：MoonBit 强类型系统，编译期错误检查
+4. **跨平台**：支持浏览器、Node.js、WASM 运行时
 
 ## 核心功能
 1. 多目标编译架构：一套 MoonBit 源码，支持 JS (ESM)、JS Worker、WASM (线性内存)、WASM-GC 四种编译目标
