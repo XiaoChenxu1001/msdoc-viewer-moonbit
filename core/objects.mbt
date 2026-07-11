@@ -717,9 +717,13 @@ fn extract_picture_asset_impl(
   let segment_data = picture_chunk
   match detect_image_segment(segment_data) {
     Some(segment) => {
-      // Use the entire picture chunk as image data (don't rely on find_emf_end)
-      // This ensures we get the complete image data
-      let image_bytes = picture_chunk
+      // Extract only the detected image segment bytes
+      // This handles WMF/EMF files that contain embedded JPEG/PNG correctly
+      let image_bytes = if segment.start == 0 && segment.end >= picture_chunk.length() {
+        picture_chunk  // Full picture is the image
+      } else {
+        FixedArray::makei(segment.end - segment.start, fn(i) { picture_chunk[segment.start + i] })
+      }
 
       // If deferred, skip processing and use placeholder
       if is_deferred {
@@ -1262,10 +1266,7 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> OLE10Info? {
     offset += 4
     if data_size > 0 && offset + data_size <= bytes.length() {
       let data_bytes = FixedArray::makei(data_size, fn(i) { bytes[offset + i] })
-      return Some(OLE10Info::{
-        label,
-        bytes: data_bytes,
-      })
+      return Some(OLE10Info::{ label, bytes: data_bytes })
     }
   }
   None
@@ -1273,8 +1274,10 @@ pub fn parse_ole10_native(bytes : FixedArray[Byte]) -> OLE10Info? {
 
 ///|
 /// Parsed HFD (Hyperlink Field Data) result
+
 ///|
 /// Parsed FFData (Form Field Data) result
+
 ///|
 /// Check if a stream name matches a pattern (handles control-char prefixes)
 fn stream_name_matches(entry : CFBEntry, pattern : String) -> Bool {

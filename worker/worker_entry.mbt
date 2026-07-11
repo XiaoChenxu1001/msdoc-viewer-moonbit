@@ -19,19 +19,17 @@ pub fn worker_render(input : FixedArray[Byte]) -> String {
   try {
     let parsed = @core.parse_ms_doc(input)
     let result = @core.render_parsed(parsed)
-    // Collect asset CFB offsets for image extraction
+    // Collect asset CFB offsets indexed by parsed.assets position
+    // Non-image or empty assets get empty string
     let offsets = StringBuilder::new()
     let mut first = true
     for asset in parsed.assets {
-      if asset.asset_type == "image" && asset.bytes.length() > 0 {
-        // Asset ID format: "asset-img-{offset}"
-        if asset.id.length() > 10 {
-          if !first {
-            offsets <+ ","
-          }
-          first = false
-          offsets <+ "\{asset.id[10 : asset.id.length()]}"
-        }
+      if !first {
+        offsets <+ ","
+      }
+      first = false
+      if asset.asset_type == "image" && asset.bytes.length() > 0 && asset.id.length() > 10 {
+        offsets <+ "\{asset.id[10 : asset.id.length()]}"
       }
     }
     "\{result.css}|||SEPARATOR|||\{result.html}|||ASSETS|||\{offsets.to_string()}"

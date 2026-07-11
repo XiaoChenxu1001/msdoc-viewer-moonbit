@@ -774,6 +774,7 @@ fn state_to_run(text : String, state : CharState, href : String) -> RenderRun {
     is_attachment: false,
     attachment_name: "",
     form_field: None,
+  asset_index: -1,
   }
 }
 
@@ -881,6 +882,7 @@ fn process_inline_fields(
                 is_attachment: false,
                 attachment_name: "",
                 form_field: None,
+              asset_index: -1,
               }
               ci += 1
               continue
@@ -920,6 +922,7 @@ fn process_inline_fields(
             is_attachment: false,
             attachment_name: "",
             form_field: None,
+          asset_index: -1,
           }
           field_stack[top_idx].runs.push(new_run)
         } else {
@@ -966,6 +969,7 @@ fn process_inline_fields(
                 is_attachment: false,
                 attachment_name: "",
                 form_field: None,
+              asset_index: -1,
               }
               ci += 1
               continue
@@ -1005,6 +1009,7 @@ fn process_inline_fields(
             is_attachment: false,
             attachment_name: "",
             form_field: None,
+          asset_index: -1,
           })
         }
         ci += 1
@@ -1132,6 +1137,7 @@ fn process_inline_fields(
                 is_attachment: old_run.is_attachment,
                 attachment_name: old_run.attachment_name,
                 form_field: None,
+              asset_index: -1,
               }
             }
             ri += 1
@@ -1202,6 +1208,7 @@ fn process_inline_fields(
               is_attachment: old_run.is_attachment,
               attachment_name: old_run.attachment_name,
               form_field: Some(ff),
+            asset_index: -1,
             }
             ri2 += 1
           }
@@ -1281,6 +1288,7 @@ fn process_inline_fields(
           is_attachment: false,
           attachment_name: "",
           form_field: None,
+        asset_index: -1,
         }
         if field_stack.length() > 0 {
           let top_idx3 = field_stack.length() - 1
@@ -1330,6 +1338,7 @@ fn process_inline_fields(
           is_attachment: false,
           attachment_name: "",
           form_field: None,
+        asset_index: -1,
         }
         if field_stack.length() > 0 {
           field_stack[field_stack.length() - 1].runs.push(pb_run)
@@ -1345,6 +1354,15 @@ fn process_inline_fields(
         let asset = resolve_asset_for_picture(resolver, segment.state)
         match asset {
           Some(a) => {
+            // Find asset index in resolver.assets by id match
+            let mut asset_idx = -1
+            {
+              let mut ai = resolver.assets.length() - 1
+              while ai >= 0 {
+                if resolver.assets[ai].id == a.id { asset_idx = ai; break }
+                ai -= 1
+              }
+            }
             let img_run = RenderRun::{
               text: "",
               bold: segment.state.bold,
@@ -1379,6 +1397,7 @@ fn process_inline_fields(
               is_attachment: a.asset_type == "attachment",
               attachment_name: a.id,
               form_field: None,
+              asset_index: asset_idx,
             }
             if field_stack.length() > 0 {
               field_stack[field_stack.length() - 1].runs.push(img_run)
@@ -1471,6 +1490,7 @@ fn process_inline_fields(
               is_attachment: false,
               attachment_name: "",
               form_field: None,
+            asset_index: -1,
             }
             ci += 1
             continue
@@ -1546,6 +1566,7 @@ fn process_inline_fields(
               is_attachment: false,
               attachment_name: "",
               form_field: None,
+            asset_index: -1,
             }
             ci += 1
             continue
@@ -1657,6 +1678,7 @@ fn merge_adjacent_runs(runs : Array[RenderRun]) -> Array[RenderRun] {
         is_attachment: false,
         attachment_name: "",
         form_field: None,
+      asset_index: -1,
       }
     } else {
       merged.push(curr)

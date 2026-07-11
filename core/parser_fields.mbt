@@ -13,6 +13,7 @@ priv struct FieldInstructionResult {
 
 ///|
 /// A hyperlink field range in CP-space
+
 ///|
 /// Strip field markers and trim trailing \r/\u{0007} in a single pass
 fn strip_field_markers_and_trim(text : String) -> String {
@@ -174,10 +175,7 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
   }
   let remaining = len - start
   if remaining == 0 {
-    return FieldInstructionResult::{
-      instr_type: "unknown",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "unknown", href: "" }
   }
   let _raw = inst_str[start:len].to_owned()
 
@@ -189,15 +187,9 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
     }
     let href = extract_quoted_or_first_token_from(inst_str, bs)
     if href.length() > 0 {
-      return FieldInstructionResult::{
-        instr_type: "hyperlink",
-        href,
-      }
+      return FieldInstructionResult::{ instr_type: "hyperlink", href }
     }
-    return FieldInstructionResult::{
-      instr_type: "unknown",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "unknown", href: "" }
   }
 
   // INCLUDEPICTURE (14 chars)
@@ -207,50 +199,32 @@ fn decode_field_instruction(instruction : String) -> FieldInstructionResult {
       bs += 1
     }
     let _target = extract_quoted_or_first_token_from(inst_str, bs)
-    return FieldInstructionResult::{
-      instr_type: "includePicture",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "includePicture", href: "" }
   }
 
   // EMBED (5 chars)
   if remaining >= 5 && ci_eq_prefix(inst_str, start, "EMBED") {
-    return FieldInstructionResult::{
-      instr_type: "embed",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "embed", href: "" }
   }
 
   // LINK (4 chars)
   if remaining >= 4 && ci_eq_prefix(inst_str, start, "LINK") {
-    return FieldInstructionResult::{
-      instr_type: "link",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "link", href: "" }
   }
 
   // FORMTEXT (8 chars)
   if remaining >= 8 && ci_eq_prefix(inst_str, start, "FORMTEXT") {
-    return FieldInstructionResult::{
-      instr_type: "formtext",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "formtext", href: "" }
   }
 
   // FORMCHECKBOX (12 chars)
   if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMCHECKBOX") {
-    return FieldInstructionResult::{
-      instr_type: "formcheckbox",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "formcheckbox", href: "" }
   }
 
   // FORMDROPDOWN (12 chars)
   if remaining >= 12 && ci_eq_prefix(inst_str, start, "FORMDROPDOWN") {
-    return FieldInstructionResult::{
-      instr_type: "formdropdown",
-      href: "",
-    }
+    return FieldInstructionResult::{ instr_type: "formdropdown", href: "" }
   }
 
   FieldInstructionResult::{ instr_type: "unknown", href: "" }

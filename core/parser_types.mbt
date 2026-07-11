@@ -49,6 +49,13 @@ pub struct RenderRun {
   is_attachment : Bool
   attachment_name : String
   form_field : FormFieldData?
+  asset_index : Int  // index into ParseContext.assets, -1 if not an image/attachment
+}
+
+///| Chunk render result with asset indices for concurrent image processing
+pub struct ChunkResult {
+  html : String
+  asset_indices : Array[Int]
 }
 
 ///|
@@ -155,6 +162,31 @@ pub struct DeferredParseResult {
   data_bytes : FixedArray[Byte]
   image_config : ImageProcessorConfig
   image_cache : Map[Int, Asset]
+}
+
+///| Streaming parse context — holds all parsed data for chunk-based rendering
+///| Created by parse_init(), consumed by render_chunk() and render_footer_html()
+pub struct ParseContext {
+  blocks : Array[Block]
+  text : String
+  paragraphs : Array[ParagraphInfo]
+  textboxes : Array[TextBox]
+  headers : Array[HeaderFooter]
+  footers : Array[HeaderFooter]
+  sections : Array[SectionProperties]
+  footnotes : Array[Footnote]
+  endnotes : Array[Footnote]
+  comments : Array[Comment]
+  assets : Array[Asset]
+  meta : ParseMeta?
+  fonts : Array[FontInfo]
+  styles : Array[StyleInfo]
+  warnings : Array[String]
+  ///| Cache for processed image data URLs (asset_index → processed data_url)
+  ///| Populated lazily during render_chunk() calls
+  image_cache : Map[Int, String]
+  ///| Precomputed textbox block indices: block_index → textbox_index (-1 if not a textbox anchor)
+  textbox_block_indices : Array[Int]
 }
 
 ///|

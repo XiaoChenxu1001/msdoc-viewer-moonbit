@@ -218,10 +218,12 @@
         let loaded = 0;
         for (let i = 0; i < placeholderEls.length; i++) {
           try {
-            const offset = i < assetOffsets.length ? assetOffsets[i] : -1;
-            console.log(`[Worker] Image ${i}: offset=${offset}, DOM element:`, placeholderEls[i].src?.substring(0, 60));
+            // Use data-asset-index to look up the correct CFB offset
+            const assetIndex = parseInt(placeholderEls[i].getAttribute('data-asset-index'), 10);
+            const offset = !isNaN(assetIndex) && assetIndex >= 0 && assetIndex < assetOffsets.length ? assetOffsets[assetIndex] : -1;
+            console.log(`[Worker] Image ${i}: assetIndex=${assetIndex}, offset=${offset}, DOM element:`, placeholderEls[i].src?.substring(0, 60));
 
-            if (offset < 0) {
+            if (offset === '' || offset < 0 || isNaN(offset)) {
               console.warn(`[Worker] Image ${i}: No offset available, skipping`);
               loaded++;
               continue;
@@ -233,6 +235,7 @@
             if (result && result.startsWith('data:') && !result.includes('svg+xml')) {
               placeholderEls[i].src = result;
               placeholderEls[i].removeAttribute('data-placeholder');
+              placeholderEls[i].removeAttribute('data-asset-index');
               console.log(`[Worker] Image ${i}: DOM updated successfully`);
             } else {
               console.warn(`[Worker] Image ${i}: Result filtered out (placeholder or invalid)`);

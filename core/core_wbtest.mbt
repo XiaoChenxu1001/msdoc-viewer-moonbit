@@ -350,6 +350,7 @@ test "render run creation" {
     is_attachment: false,
     attachment_name: "",
     form_field: None,
+    asset_index: -1,
   }
   assert_eq(run.text, "test")
   assert_eq(run.bold, true)

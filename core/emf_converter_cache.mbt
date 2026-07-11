@@ -59,10 +59,7 @@ pub fn cache_set(
   data : FixedArray[Byte],
   mime : String,
 ) -> Unit {
-  cache.entries.set(
-    key,
-    CacheEntry::{ data, mime },
-  )
+  cache.entries.set(key, CacheEntry::{ data, mime })
 }
 
 ///|

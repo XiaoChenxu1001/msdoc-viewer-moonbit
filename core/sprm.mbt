@@ -721,7 +721,7 @@ pub fn decode_sprm(sprm : Int, operand : ArrayView[Byte]) -> DecodedProperty {
       }
       // Other table SPRMs: use default flat parsing
       _ => {
-  let _value = if operand.length() >= 4 {
+        let _value = if operand.length() >= 4 {
           operand[0].to_int() |
           (operand[1].to_int() << 8) |
           (operand[2].to_int() << 16) |

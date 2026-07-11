@@ -528,12 +528,17 @@ fn render_run_html(run : RenderRun) -> String {
       } else {
         ""
       }
+      let asset_attr = if run.asset_index >= 0 {
+        " data-asset-index=\"\{run.asset_index}\""
+      } else {
+        ""
+      }
       let size_attr = if run.image_width > 0 && run.image_height > 0 {
         " width=\"\{run.image_width}\" height=\"\{run.image_height}\""
       } else {
         ""
       }
-      let img = "<img src=\"\{run.image_data_url}\" class=\"msdoc-image\" alt=\"image\" style=\"display:inline-block;vertical-align:middle;max-width:100%;height:auto;\"\{size_attr}\{placeholder_attr}>"
+      let img = "<img src=\"\{run.image_data_url}\" class=\"msdoc-image\" alt=\"image\" style=\"display:inline-block;vertical-align:middle;max-width:100%;height:auto;\"\{size_attr}\{placeholder_attr}\{asset_attr}>"
       if run.href.length() > 0 {
         return "<a class=\"msdoc-link\" href=\"\{escape_html_text(run.href)}\" target=\"_blank\" rel=\"noreferrer noopener\">\{img}</a>"
       }
